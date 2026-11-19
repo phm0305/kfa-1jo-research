@@ -1,0 +1,4 @@
+repo: phm0305/KFA-ai-agent-study
+commit: 292133e1dd22b74df4b2ea3d5181d3f35a4931eb
+commit date: 2026-11-16 16:15:54 +0900
+files: tools/collect.py, tools/engine.py
