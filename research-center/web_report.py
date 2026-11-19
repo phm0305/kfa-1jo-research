@@ -12,12 +12,11 @@ import json
 import re
 from pathlib import Path
 
-import pandas as pd
-
 from collect import is_blank
 from engine import FIX, PASS
 from layout import PAGES
-from pipeline import _eok
+from market import current_price
+from pipeline import _eok, all_rows
 
 TEMPLATE = Path(__file__).resolve().parent / "web" / "template.html"
 NEED = "확인 필요"
@@ -92,8 +91,9 @@ def report_data(bundle, pages, checked):
     claim check plus the columns 파트 (the writing part's name) and 발췌 대조 (excerpt_check result)."""
     year = bundle.year
     records, metrics = bundle.records, bundle.metrics
-    all_rows = pd.concat([records, bundle.segments])
-    source_of = dict(zip(all_rows["rid"], all_rows["source_id"]))
+    rows_by_rid = all_rows(bundle)
+    source_of = dict(zip(rows_by_rid["rid"], rows_by_rid["source_id"]))
+    price = current_price(bundle.prices)
     part_texts = [_text(pages.get(p, {})) for p in PANEL_PAGES.values()]
     by_year = lambda table, y: table[table["기준일"].str[:4] == str(y)]
 
@@ -135,7 +135,11 @@ def report_data(bundle, pages, checked):
     return {
         "meta": {"is_example": False, "ticker": bundle.stock_code, "name": bundle.stock_name, "industry": industry.get("업종") or NEED,
                  "as_of": records["기준일"].max(), "currency": "KRW"},
-        "summary": {"opinion": NEED, "one_line": summary_text[0] if summary_text else NEED, "current_price": None},
+        "summary": {"opinion": NEED, "one_line": summary_text[0] if summary_text else NEED,
+                    "current_price": None if price is None else float(price["값"]),
+                    "price_as_of": None if price is None else price["기준일"],
+                    "price_source": None if price is None else price["source_id"],
+                    "upside_note": "검증 실패" if bundle.price_stale else None},
         "key_metrics": key_metrics,
         "industry": {"trend": TRENDS.get((industry.get("추세") or "").strip()),
                      "headline": industry.get("한 줄 제목") or NEED, "series_label": series_label,

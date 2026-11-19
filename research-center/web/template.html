@@ -257,7 +257,7 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
         </div>
         <div class="small muted num" id="co-meta"></div>
         <div class="co-prices">
-          <div><div class="k">현재가</div><div class="num" id="side-now"></div></div>
+          <div><div class="k">현재가</div><div class="num" id="side-now"></div><div class="small muted" id="side-now-meta"></div></div>
           <div><div class="k">목표가</div><div class="num" id="side-target"></div></div>
         </div>
       </div>
@@ -272,7 +272,7 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
           <div class="panel-head"><h2 id="h-summary">한눈에 보기</h2><span class="small muted" id="as-of"></span></div>
           <div class="one-line" id="one-line"></div>
           <div class="price-tiles">
-            <div class="tile"><div class="k">현재가</div><div class="v num" id="price-now"></div></div>
+            <div class="tile"><div class="k">현재가</div><div class="v num" id="price-now"></div><div class="small muted" id="price-now-meta"></div></div>
             <div class="tile"><div class="k">목표가</div><div class="v num" id="price-target"></div></div>
             <div class="tile"><div class="k">상승 여력</div><div class="v num" id="upside"></div></div>
           </div>
@@ -378,7 +378,10 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
   "summary": {
     "opinion": "매수",
     "one_line": "업황 개선이 이익률로 이어지고 있지만, 목표 배수의 근거는 아직 보강이 필요합니다.",
-    "current_price": 182000
+    "current_price": 182000,
+    "price_as_of": "2026-11-06",
+    "price_source": null,
+    "upside_note": null
   },
   "key_metrics": [
     { "label": "영업이익률", "value": 32.4, "unit": "%", "star": true, "why": "메모리 업종은 가격이 오르면 고정비가 그대로라 이익률이 먼저 움직입니다.", "source": "S1" },
@@ -550,14 +553,17 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
     const op = $("opinion");
     op.textContent = s.opinion + (m.is_example ? " (예시)" : "");
     op.classList.add(s.opinion === "매수" ? "up" : s.opinion === "매도" ? "down" : "hold");
+    const priceMeta = missing(s.current_price) ? "" : `기준일 ${esc(s.price_as_of)} ${srcTag(s.price_source)}`;
     $("side-now").textContent = won(s.current_price);
+    $("side-now-meta").innerHTML = priceMeta;
+    $("price-now-meta").innerHTML = priceMeta;
     $("side-target").textContent = won(target);
 
     $("one-line").innerHTML = card(s.one_line, "1쪽 요약");
     $("as-of").textContent = `기준일 ${m.as_of}`;
     $("price-now").textContent = won(s.current_price);
     $("price-target").textContent = won(target);
-    $("upside").textContent = missing(upside) ? NEED : (upside >= 0 ? "+" : "") + fmt(upside * 100) + "%";
+    $("upside").textContent = s.upside_note ? s.upside_note : missing(upside) ? NEED : (upside >= 0 ? "+" : "") + fmt(upside * 100) + "%";
     $("key-grid").innerHTML = data.key_metrics.map((k) => `
       <div class="key${k.star ? " star" : ""}">
         <div class="label"><span>${esc(k.label)}${srcTag(k.source)}</span>${k.star ? '<span class="star-tag">판단 핵심</span>' : ""}</div>

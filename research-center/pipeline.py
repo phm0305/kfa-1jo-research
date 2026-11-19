@@ -4,7 +4,7 @@ Code collects, computes and checks numbers; Gemini parts only write. Expects eng
 research-center/ on sys.path. Member-facing messages are Korean on purpose.
 
 [한국어 안내] 이 파일은 고치지 않고 실행만 해요.
-    build_bundle()  DART에서 재무와 사업보고서 원문을 받아 공통 표·출처 목록·지표·사업부문·발췌를 만들어요 (파트에 넘기는 데이터 묶음)
+    build_bundle()  DART에서 재무와 사업보고서 원문을 받아 공통 표·출처 목록·지표·사업부문·발췌를 만들고, 주가와 주식수를 맨 뒤에 붙여요 (파트에 넘기는 데이터 묶음)
     bundle_text()   데이터 묶음을 AI에게 넘길 글자로 바꿔요
     run()           지시서 6개로 파트 → 센터장 → 숫자 대조 → 품질 점검 → 반대신문을 끝까지 돌려 리포트와 검증 기록지를 만들어요
 """
@@ -25,6 +25,7 @@ from excerpt_check import excerpt_check
 from engine import (FIX, METRIC_SPECS, UNITS, ask_claims, build_sources, check_claims, claims_prompt,
                     compute_metrics, load_claims, render_check, with_ids)
 from layout import PAGES
+from market import current_price, price_problem, price_records, share_records
 
 EOK = 10 ** 8
 DOC_DIR = Path("data/dart_doc")
@@ -56,7 +57,9 @@ WRITING_RULES = """규칙
 PART_RULES = {"industry": """
 - 업종 칸에는 회사의 주력 업종을 짧은 명사구로, 한 줄 제목 칸에는 산업 판단을 한 문장으로 써
 - 업종코드는 식별용이다. 업종 이름은 발췌의 사업의 개요에 적힌 표현을 쓰고, 코드에서 이름을 추측하지 마
-- 추세 칸에는 개선, 악화, 횡보 중 한 단어만 써. 최근 3년 주력 품목 매출과 영업이익률이 함께 늘면 개선, 함께 줄면 악화, 엇갈리거나 변화가 작으면 횡보로 판단해"""}
+- 추세 칸에는 개선, 악화, 횡보 중 한 단어만 써. 최근 3년 주력 품목 매출과 영업이익률이 함께 늘면 개선, 함께 줄면 악화, 엇갈리거나 변화가 작으면 횡보로 판단해""",
+              "valuation": """
+- [주가와 주식수]에 "괴리율: 검증 실패"가 있으면 괴리율·상승 여력 자리에 숫자 대신 "검증 실패"라고 써. 주가가 없으면 "계산 불가"라고 써"""}
 DELTA_UNITS = ("%p", "%포인트", "포인트")
 CENTER_RULES = WRITING_RULES + """
 - 숫자는 [파트 글]에 이미 나온 것만 근거와 함께 옮겨 써. 새 숫자를 만들지 마
@@ -86,6 +89,11 @@ class Bundle:
     segment_problems: tuple = ()
     industry_code: str = ""
     industry_problem: str = ""
+    prices: pd.DataFrame = field(default_factory=pd.DataFrame)
+    price_error: str = ""
+    price_stale: str = ""
+    shares: pd.DataFrame = field(default_factory=pd.DataFrame)
+    shares_error: str = ""
 
 
 @dataclass(frozen=True)
@@ -144,8 +152,53 @@ def build_bundle(stock_code, year, n_years, api_key):
         sources = pd.concat([sources, pd.DataFrame([{
             "source_id": f"S{len(sources) + 1}", "출처": COMPANY_SOURCE, "출처 URL": "https://opendart.fss.or.kr",
             "줄 수": 1, "수집 방법": "1 공식 API", "신뢰도": "상", "기준일 범위": now_kst()[:10]}])], ignore_index=True)
-    return Bundle(stock_code, records["종목명"].iloc[0], year, records, metrics, sources,
-                  segments, tuple(found), tuple(problems), code, code_problem)
+    name, now = records["종목명"].iloc[0], datetime.now(KST)
+    sources, prices, price_error = append_source(sources, lambda: price_records(stock_code, name, years, now))
+    sources, shares, shares_error = append_source(sources, lambda: share_records(stock_code, name, year, api_key))
+    return Bundle(stock_code, name, year, records, metrics, sources, segments, tuple(found), tuple(problems),
+                  code, code_problem, prices, price_error, "" if prices.empty else price_problem(prices, now.date()),
+                  shares, shares_error)
+
+
+def append_source(sources, collect):
+    """Rows from collect() tagged with the next S#, so every existing S# and rid keeps its number.
+    A failed collection returns no rows and its reason; the run goes on without them."""
+    try:
+        rows = collect()
+    except CollectError as err:
+        return sources, pd.DataFrame(), str(err)
+    new, tagged = build_sources(with_ids(rows))
+    if len(new) != 1:
+        raise CollectError(f"덧붙이는 자료는 출처가 하나여야 해요. 지금: {new['출처'].tolist()}")
+    sid = f"S{len(sources) + 1}"
+    return (pd.concat([sources, new.assign(source_id=sid)], ignore_index=True),
+            tagged.assign(source_id=sid), "")
+
+
+def all_rows(bundle):
+    """Every shared-table row a claim may cite: financials, segments, prices, shares."""
+    return pd.concat([t for t in (bundle.records, bundle.segments, bundle.prices, bundle.shares) if not t.empty],
+                     ignore_index=True)
+
+
+def price_line(bundle):
+    """The one line shown on page 1, in the data block and in the run status."""
+    row = current_price(bundle.prices)
+    if row is None:
+        return "현재 주가: 없음" + (f" ({bundle.price_error})" if bundle.price_error else "") + ". 밸류에이션 괴리율 계산 불가"
+    line = f"현재 주가: {row['값']:,.0f}원 (기준일 {row['기준일']}, 출처 {row['source_id']})"
+    return line + (f". 괴리율: 검증 실패 ({bundle.price_stale})" if bundle.price_stale else "")
+
+
+def shares_line(bundle):
+    if bundle.shares.empty:
+        return "주식수: 없음" + (f" ({bundle.shares_error})" if bundle.shares_error else "")
+    row = bundle.shares.iloc[-1]
+    return f"{row['항목']}: {row['값']:,.0f}주 (기준일 {row['기준일']}, 출처 {row['source_id']})"
+
+
+def _market_rows(table):
+    return _csv(table[["rid", "항목", "기준일", "값", "단위", "source_id"]].assign(값=table["값"].map(lambda v: f"{v:.0f}")))
 
 
 def _company_source(bundle):
@@ -194,6 +247,11 @@ def bundle_text(bundle, scope=None):
         "## 회사 정보",
         (f"항목,값,source_id\n업종코드(KSIC),{bundle.industry_code},{_company_source(bundle)}\n(업종명은 DART가 주지 않아 코드만)"
          if bundle.industry_code else f"(업종코드 없음{': ' + bundle.industry_problem if bundle.industry_problem else ''})"),
+        "## 주가와 주식수 (종가는 원, 주식수는 주. 주가로 나누는 숫자는 아직 지표 표에 없음)",
+        price_line(bundle),
+        *([_market_rows(bundle.prices)] if not bundle.prices.empty else []),
+        shares_line(bundle),
+        *([_market_rows(bundle.shares)] if not bundle.shares.empty else []),
         "## 재무 표 (값은 원 단위 원본, 값(억원)은 코드가 바꾼 읽기용)",
         _record_rows(records) if len(records) else left_out,
         "## 지표 표",
@@ -469,7 +527,9 @@ def run(stock_code, year, prompts_dir, run_dir, api_key, dart_key, max_qa_rounds
         caller.status.append(("데이터 묶음", "✅", f"재무 {len(bundle.records)}줄, 사업부문 {len(bundle.segments)}줄, "
                                                   f"발췌 {len(bundle.excerpts)}개, 지표 {len(bundle.metrics)}개, "
                                                   f"업종코드 {bundle.industry_code or '없음'}"))
-        all_records = pd.concat([bundle.records, bundle.segments], ignore_index=True)
+        caller.status.append(("주가", "⚠" if bundle.prices.empty or bundle.price_stale else "✅", price_line(bundle)))
+        caller.status.append(("주식수", "⚠" if bundle.shares.empty else "✅", shares_line(bundle)))
+        all_records = all_rows(bundle)
         base = {n: (f"{_fill(specs[n].body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(n, '')}\n\n[쓸 칸]\n{_slots(specs[n].pages)}\n\n"
                     f"{bundle_text(bundle, specs[n].scope)}") for n in PART_NAMES}
         notes = {}
@@ -542,6 +602,8 @@ def render_report(specs, answers, bundle, path, bad_format=()):
     lines = [f"# {bundle.stock_name}({bundle.stock_code}) {bundle.year} 리서치 리포트", ""]
     for page, (title, subtitles) in PAGES.items():
         lines += [f"## {page}쪽 {title}", ""]
+        if page == 1:
+            lines += [price_line(bundle), ""]
         owner = owners.get(page)
         sections = answers.get(owner, {})
         missing = "(확인 필요: 다시 불러도 소제목이 목차와 다름)" if owner in bad_format else "(비어 있음)"
@@ -582,8 +644,7 @@ def render_html(run_dir, bundle, specs):
             alone = run_dir / f"claims_{name}_r{rnd}.json"
             if alone.exists():
                 claims += _tag_alone(name, load_claims(alone), owners)
-        records = pd.concat([bundle.records, bundle.segments], ignore_index=True)
-        checked = check_claims(claims, bundle.metrics, records)
+        checked = check_claims(claims, bundle.metrics, all_rows(bundle))
         excerpt_texts = {e["id"]: e["글"] for e in bundle.excerpts}
         excerpt_sources = {e["source_id"] for e in bundle.excerpts if e["source_id"]}
         checked["파트"] = [specs[o].part if o in specs else "알 수 없음" for o in checked["claim_id"].map(owners)]
@@ -627,6 +688,12 @@ def render_verification(caller, state, bundle, path):
                      if _norm(str(r["적은 단위"])) in DELTA_UNITS else "")
                   for _, r in left.iterrows()]
     if bundle is not None:
+        if bundle.prices.empty:
+            lines.append(f"- [ ] 주가 없음, 밸류에이션 괴리율 계산 불가: {bundle.price_error or '수집 안 됨'}")
+        elif bundle.price_stale:
+            lines.append(f"- [ ] 괴리율 검증 실패: {bundle.price_stale}")
+        if bundle.shares.empty:
+            lines.append(f"- [ ] 주식수 없음: {bundle.shares_error or '수집 안 됨'}")
         lines += [f"- [ ] 사업부문 표 자동 점검: {p}" for p in bundle.segment_problems]
         lines += [f"- [ ] 발췌 {e['id']} {e['제목']}: {e['잘린 글자 수']:,}자 잘림" for e in bundle.excerpts if e["잘린 글자 수"]]
     lines += ["- [ ] 투자의견: 목표 배수와 BUY/HOLD 기준이 지시서에 들어오기 전까지 확인 필요",
