@@ -19,13 +19,14 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from collect import KST, QUARTER_END, CollectError, SkipStep, collect_dart, is_blank, now_kst
+from collect import KST, QUARTER_END, REVIEW, CollectError, SkipStep, collect_dart, is_blank, now_kst
 from dart_doc import COMPANY_SOURCE, excerpts, fetch_document, industry_code, load_document, report_rcept_no, segment_sales
 from excerpt_check import excerpt_check
 from engine import (FIX, METRIC_SPECS, UNITS, ask_claims, build_sources, check_claims, claims_prompt,
                     compute_metrics, load_claims, render_check, with_ids)
 from layout import PAGES
-from market import current_price, price_problem, price_records, share_records
+from market import (PER_SHARE_ITEMS, VALUATION_NAMES, current_price, owner_records, price_problem, price_records, share_records,
+                    valuation_metrics)
 
 EOK = 10 ** 8
 DOC_DIR = Path("data/dart_doc")
@@ -155,9 +156,17 @@ def build_bundle(stock_code, year, n_years, api_key):
     name, now = records["종목명"].iloc[0], datetime.now(KST)
     sources, prices, price_error = append_source(sources, lambda: price_records(stock_code, name, years, now))
     sources, shares, shares_error = append_source(sources, lambda: share_records(stock_code, name, year, api_key))
+    stale = "" if prices.empty else price_problem(prices, now.date())
+    try:
+        owners, owner_error = owner_records(stock_code, name, year, api_key, sources), ""
+    except CollectError as err:
+        owners, owner_error = pd.DataFrame(), str(err)
+    # Appended after the engine's rows and metrics, so every existing rid and M# keeps its number.
+    records = pd.concat([records, owners], ignore_index=True)
+    metrics = pd.concat([metrics, valuation_metrics(records, prices, shares, stale, year, len(metrics) + 1, owner_error)],
+                        ignore_index=True)
     return Bundle(stock_code, name, year, records, metrics, sources, segments, tuple(found), tuple(problems),
-                  code, code_problem, prices, price_error, "" if prices.empty else price_problem(prices, now.date()),
-                  shares, shares_error)
+                  code, code_problem, prices, price_error, stale, shares, shares_error)
 
 
 def append_source(sources, collect):
@@ -197,6 +206,18 @@ def shares_line(bundle):
     return f"{row['항목']}: {row['값']:,.0f}주 (기준일 {row['기준일']}, 출처 {row['source_id']})"
 
 
+def eps_line(bundle):
+    """The computed EPS next to DART's basic EPS. Basic EPS divides by the weighted average share count,
+    so a difference is shown, never judged."""
+    eps = bundle.metrics[bundle.metrics["지표"] == "EPS"]
+    basic = bundle.records[bundle.records["항목"] == "기본주당이익(연간)"]
+    if eps.empty or basic.empty or is_blank(eps["값"].iloc[0]) or is_blank(basic["값"].iloc[0]):
+        return ""
+    mine, theirs = float(eps["값"].iloc[0]), float(basic["값"].iloc[0])
+    return (f"EPS 대조: 계산 EPS {mine:,.2f}원({eps['metric_id'].iloc[0]}, 연말 유통주식수 기준) / "
+            f"DART 기본주당이익 {theirs:,.0f}원(가중평균 주식수 기준) / 차이 {(mine / theirs - 1) * 100:+.2f}%")
+
+
 def _market_rows(table):
     return _csv(table[["rid", "항목", "기준일", "값", "단위", "source_id"]].assign(값=table["값"].map(lambda v: f"{v:.0f}")))
 
@@ -211,7 +232,7 @@ def _csv(table):
 
 def _eok(row):
     base, scale = UNITS.get(row["단위"], (None, None))
-    if base != "원" or is_blank(row["값"]):
+    if base != "원" or is_blank(row["값"]) or row["항목"] in PER_SHARE_ITEMS:
         return ""
     return f"{row['값'] * float(scale) / EOK:.1f}"
 
@@ -247,7 +268,7 @@ def bundle_text(bundle, scope=None):
         "## 회사 정보",
         (f"항목,값,source_id\n업종코드(KSIC),{bundle.industry_code},{_company_source(bundle)}\n(업종명은 DART가 주지 않아 코드만)"
          if bundle.industry_code else f"(업종코드 없음{': ' + bundle.industry_problem if bundle.industry_problem else ''})"),
-        "## 주가와 주식수 (종가는 원, 주식수는 주. 주가로 나누는 숫자는 아직 지표 표에 없음)",
+        "## 주가와 주식수 (종가는 원, 주식수는 주. EPS·BPS·시가총액·PER·PBR은 지표 표에 있음)",
         price_line(bundle),
         *([_market_rows(bundle.prices)] if not bundle.prices.empty else []),
         shares_line(bundle),
@@ -529,6 +550,8 @@ def run(stock_code, year, prompts_dir, run_dir, api_key, dart_key, max_qa_rounds
                                                   f"업종코드 {bundle.industry_code or '없음'}"))
         caller.status.append(("주가", "⚠" if bundle.prices.empty or bundle.price_stale else "✅", price_line(bundle)))
         caller.status.append(("주식수", "⚠" if bundle.shares.empty else "✅", shares_line(bundle)))
+        if eps_line(bundle):
+            caller.status.append(("EPS 대조", "ℹ", eps_line(bundle)))
         all_records = all_rows(bundle)
         base = {n: (f"{_fill(specs[n].body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(n, '')}\n\n[쓸 칸]\n{_slots(specs[n].pages)}\n\n"
                     f"{bundle_text(bundle, specs[n].scope)}") for n in PART_NAMES}
@@ -694,6 +717,8 @@ def render_verification(caller, state, bundle, path):
             lines.append(f"- [ ] 괴리율 검증 실패: {bundle.price_stale}")
         if bundle.shares.empty:
             lines.append(f"- [ ] 주식수 없음: {bundle.shares_error or '수집 안 됨'}")
+        held = bundle.metrics[bundle.metrics["지표"].isin(VALUATION_NAMES) & (bundle.metrics["상태"] == REVIEW)]
+        lines += [f"- [ ] 지표 {r['metric_id']} {r['지표']} 확인 필요: {r['이유']}" for _, r in held.iterrows()]
         lines += [f"- [ ] 사업부문 표 자동 점검: {p}" for p in bundle.segment_problems]
         lines += [f"- [ ] 발췌 {e['id']} {e['제목']}: {e['잘린 글자 수']:,}자 잘림" for e in bundle.excerpts if e["잘린 글자 수"]]
     lines += ["- [ ] 투자의견: 목표 배수와 BUY/HOLD 기준이 지시서에 들어오기 전까지 확인 필요",

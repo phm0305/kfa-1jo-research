@@ -14,7 +14,7 @@ import collect as c
 import engine as e
 import market as m
 import pipeline as p
-from test_pipeline import PROMPTS, fake_bundle, fake_gemini, page_data
+from test_pipeline import PROMPTS, URL, fake_bundle, fake_gemini, page_data
 
 NOW = datetime(2026, 11, 20, 10, 0, tzinfo=c.KST)
 
@@ -68,7 +68,7 @@ def test_shares_are_issued_not_authorized_and_outstanding_must_equal_issued_minu
 def market_bundle(price_days=("2026-11-19",), price_error="", shares=True):
     """fake_bundle plus prices and shares appended the way build_bundle does."""
     bundle = fake_bundle("004370", 2025, 2, "key")
-    meta = dict(level=2, source=m.PRICE_SOURCE, source_url=m.PRICE_URL, reliability="중", basis=c.NOT_APPLICABLE,
+    meta = dict(level=2, source="테스트 종가", source_url="https://example.com", reliability="중", basis=c.NOT_APPLICABLE,
                 disclosed=c.SAME_AS_DATE, stock_code="004370", stock_name="농심")
     sources, prices, _ = p.append_source(bundle.sources, lambda: c.collect_table(daily(*price_days), {"Close": ("종가", "원")}, **meta))
     if price_error:
@@ -96,13 +96,11 @@ def test_appending_prices_and_shares_keeps_every_existing_rid_and_source_number(
     assert set(after.shares["source_id"]) == {"S3"}
 
 
-def test_a_failed_collection_returns_no_rows_and_its_reason():
-    def broken():
-        raise c.CollectError("FinanceDataReader에서 주가를 받지 못했어요")
+def test_until_the_official_api_is_connected_prices_are_absent_with_their_reason():
+    sources, rows, reason = p.append_source(fake_bundle("004370", 2025, 2, "key").sources,
+                                            lambda: m.price_records("004370", "농심", [2024, 2025], NOW))
 
-    sources, rows, reason = p.append_source(fake_bundle("004370", 2025, 2, "key").sources, broken)
-
-    assert rows.empty and len(sources) == 1 and "주가를 받지 못했어요" in reason
+    assert rows.empty and len(sources) == 1 and reason == "공식 API 연결 전, 주가 없음"
 
 
 def run_with(bundle, tmp_path, monkeypatch):
@@ -136,11 +134,107 @@ def test_a_stale_close_marks_the_gap_as_failed_and_the_run_goes_on(tmp_path, mon
 
 
 def test_no_price_and_no_shares_leave_their_reasons_and_the_run_goes_on(tmp_path, monkeypatch):
-    result = run_with(market_bundle(price_error="FinanceDataReader에서 주가를 받지 못했어요", shares=False),
+    result = run_with(market_bundle(price_error=m.NO_PRICE, shares=False),
                       tmp_path, monkeypatch)
 
     assert result.report is not None and not [s for s in result.status if s[1] == "❌"]
     verification = result.verification.read_text(encoding="utf-8")
-    assert "- [ ] 주가 없음, 밸류에이션 괴리율 계산 불가: FinanceDataReader에서" in verification
+    assert "- [ ] 주가 없음, 밸류에이션 괴리율 계산 불가: 공식 API 연결 전, 주가 없음" in verification
     assert "- [ ] 주식수 없음: DART 013" in verification
-    assert "현재 주가: 없음 (FinanceDataReader에서 주가를 받지 못했어요). 밸류에이션 괴리율 계산 불가" in result.report.read_text(encoding="utf-8")
+    assert "현재 주가: 없음 (공식 API 연결 전, 주가 없음). 밸류에이션 괴리율 계산 불가" in result.report.read_text(encoding="utf-8")
+
+
+def owner_rows(net_income=170132973883, equity=2830704457688, basic_eps=29342):
+    """Parent owners' rows as owner_records leaves them, tagged with the bundle's DART S1."""
+    table = pd.DataFrame({"항목": ["지배주주순이익(연간)", "지배주주자본", "기본주당이익(연간)"],
+                          "값": [net_income, equity, basic_eps], "기준일": "2025-12-31", "출처 URL": URL})
+    rows = e.with_ids(c.finalize(table, level=1, source=m.DART_SOURCE, reliability="상", basis="연결", unit="원",
+                                 disclosed="20260311", stock_code="004370", stock_name="농심"))
+    return rows.assign(source_id="S1")
+
+
+def test_owner_rows_come_from_the_income_statement_and_keep_the_filings_existing_source_number(monkeypatch):
+    listed = [{"account_id": "ifrs-full_ProfitLossAttributableToOwnersOfParent", "sj_div": "SCE", "thstrm_amount": "1", "rcept_no": "20260311000001"},
+              {"account_id": "ifrs-full_ProfitLossAttributableToOwnersOfParent", "sj_div": "IS", "thstrm_amount": "170132973883", "rcept_no": "20260311000001"},
+              {"account_id": "ifrs-full_EquityAttributableToOwnersOfParent", "sj_div": "BS", "thstrm_amount": "2830704457688", "rcept_no": "20260311000001"}]
+    body = {"status": "000", "list": listed}
+    monkeypatch.setattr(m, "dart_corp", lambda code, key: ("00108241", "농심"))
+    monkeypatch.setattr(m, "http_get", lambda url, params: type("Resp", (), {"json": lambda self: body})())
+    sources = fake_bundle("004370", 2025, 2, "key").sources.assign(출처=m.DART_SOURCE)
+
+    rows = m.owner_records("004370", "농심", 2025, "key", sources)
+
+    assert rows[["항목", "값", "source_id"]].values.tolist() == [
+        ["지배주주순이익(연간)", 170132973883, "S1"], ["지배주주자본", 2830704457688, "S1"], ["기본주당이익(연간)", None, "S1"]]
+    assert "표준 계정(ifrs-full_BasicEarningsLossPerShare)을 못 찾음" in rows["비고"].iloc[2]
+
+
+def metrics_for(prices_days=("2026-11-19",), price=345000, **owner):
+    bundle = market_bundle(price_days=prices_days)
+    prices = bundle.prices.assign(값=float(price))
+    records = pd.concat([bundle.records, owner_rows(**owner)], ignore_index=True)
+    stale = m.price_problem(prices, NOW.date())
+    return m.valuation_metrics(records, prices, bundle.shares, stale, 2025, 2)
+
+
+def test_valuation_metrics_follow_valuation_md_and_are_numbered_after_the_engine_metrics():
+    metrics = metrics_for().set_index("지표")
+
+    assert metrics["metric_id"].tolist() == ["M2", "M3", "M4", "M5", "M6"]
+    eps, bps = 170132973883 / 5834188, 2830704457688 / 5834188
+    assert metrics.loc["EPS", "값"] == pytest.approx(eps) and metrics.loc["BPS", "값"] == pytest.approx(bps)
+    assert metrics.loc["시가총액", "값"] == 345000 * 6082642
+    assert metrics.loc["PER", "값"] == pytest.approx(345000 / eps) and metrics.loc["PBR", "값"] == pytest.approx(345000 / bps)
+    assert "PER보다 4.26% 큼" in metrics.loc["시가총액", "계산식"] and "4.26%" in metrics.loc["PER", "계산식"]
+    assert (metrics["상태"] == e.COMPUTED).all()
+
+
+def test_a_stale_close_blocks_only_the_price_based_metrics():
+    metrics = metrics_for(prices_days=("2026-11-12",)).set_index("지표")
+
+    assert metrics.loc[["EPS", "BPS"], "값"].notna().all()
+    assert metrics.loc[["시가총액", "PER", "PBR"], "값"].isna().all()
+    assert metrics.loc["PER", "이유"].startswith("주가 검증 실패: 종가 기준일 2026-11-12")
+
+
+def test_a_loss_keeps_a_negative_eps_but_holds_per():
+    metrics = metrics_for(net_income=-1000000000).set_index("지표")
+
+    assert metrics.loc["EPS", "값"] < 0
+    assert metrics.loc["PER", "값"] is None and "지배주주순이익이(가) 0 이하라 PER 보류" in metrics.loc["PER", "이유"]
+    assert metrics.loc["PBR", "값"] is not None
+
+
+def test_no_price_leaves_a_reason_instead_of_a_number():
+    bundle = market_bundle(price_error=m.NO_PRICE)
+    records = pd.concat([bundle.records, owner_rows()], ignore_index=True)
+    metrics = m.valuation_metrics(records, bundle.prices, bundle.shares, "", 2025, 2).set_index("지표")
+
+    assert metrics.loc[["시가총액", "PER", "PBR"], "이유"].tolist() == ["주가 없음"] * 3
+    assert metrics.loc[["시가총액", "PER", "PBR"], "값"].isna().all()
+    assert metrics.loc[["EPS", "BPS"], "값"].notna().all() and (metrics.loc[["EPS", "BPS"], "상태"] == e.COMPUTED).all()
+
+
+def test_a_per_written_from_the_metric_table_is_judged_by_the_number_check():
+    bundle = market_bundle()
+    records = pd.concat([bundle.records, owner_rows()], ignore_index=True)
+    metrics = pd.concat([bundle.metrics, metrics_for()], ignore_index=True)
+    per = metrics[metrics["지표"] == "PER"].iloc[0]
+    claims = [{"claim_id": "C-1", "문장": "PER 11.83배", "근거": [[per["metric_id"], "11.83", "배"]]},
+              {"claim_id": "C-2", "문장": "PER 13배", "근거": [[per["metric_id"], "13", "배"]]}]
+
+    checked = e.check_claims(claims, metrics, records)
+
+    assert checked["판정"].tolist() == [e.PASS, e.FIX]
+
+
+def test_the_computed_eps_is_shown_next_to_darts_basic_eps_without_judging_the_gap():
+    bundle = market_bundle()
+    records = pd.concat([bundle.records, owner_rows()], ignore_index=True)
+    metrics = pd.concat([bundle.metrics, metrics_for()], ignore_index=True)
+
+    line = p.eps_line(p.Bundle("004370", "농심", 2025, records, metrics, bundle.sources))
+
+    print(line)
+    assert line == ("EPS 대조: 계산 EPS 29,161.38원(M2, 연말 유통주식수 기준) / "
+                    "DART 기본주당이익 29,342원(가중평균 주식수 기준) / 차이 -0.62%")

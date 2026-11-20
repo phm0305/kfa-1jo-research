@@ -15,7 +15,7 @@ from pathlib import Path
 from collect import is_blank
 from engine import FIX, PASS
 from layout import PAGES
-from market import current_price
+from market import PER_SHARE_ITEMS, current_price
 from pipeline import _eok, all_rows
 
 TEMPLATE = Path(__file__).resolve().parent / "web" / "template.html"
@@ -86,6 +86,11 @@ def _verification(checked):
     return list(claims.values())
 
 
+def _metric_value(metrics, name):
+    hit = metrics[metrics["지표"] == name]
+    return None if hit.empty or is_blank(hit["값"].iloc[0]) else float(hit["값"].iloc[0])
+
+
 def report_data(bundle, pages, checked):
     """The template's JSON. pages: {page number: {subheading: text}} as the run left them; checked: the engine's
     claim check plus the columns 파트 (the writing part's name) and 발췌 대조 (excerpt_check result)."""
@@ -103,13 +108,15 @@ def report_data(bundle, pages, checked):
                    for _, m in by_year(metrics, year).iterrows()]
 
     rows = []
-    for item in records["항목"].drop_duplicates():
+    for item in records.loc[~records["항목"].isin(PER_SHARE_ITEMS), "항목"].drop_duplicates():
         values = {y: by_year(records[records["항목"] == item], y) for y in (year - 1, year)}
         prev, curr = (_eok_number(v.iloc[0]) if len(v) else None for v in values.values())
         rows.append({"item": item, "prev": prev, "curr": curr, "kind": "amount"})
     for name in metrics["지표"].drop_duplicates():
         found = {y: by_year(metrics[metrics["지표"] == name], y) for y in (year - 1, year)}
         ids = ", ".join(f["metric_id"].iloc[0] for f in found.values() if len(f))
+        if not ids:
+            continue
         prev, curr = (_number(f["값"].iloc[0], 2) if len(f) else None for f in found.values())
         rows.append({"item": f"{name} ({ids})", "prev": prev, "curr": curr, "kind": "ratio",
                      **({"lower_is_better": True} if name in LOWER_IS_BETTER else {})})
@@ -146,7 +153,7 @@ def report_data(bundle, pages, checked):
                      "series": series, "notes": notes(PANEL_PAGES["industry"])},
         "company": {"unit": "단위: 억원(공통 재무 표 값을 코드가 바꿈), 비율은 %(지표 표 M#)",
                     "periods": [str(year - 1), str(year)], "rows": rows, "drivers": notes(PANEL_PAGES["company"])},
-        "valuation": {"method": NEED, "method_reason": "", "bps": None, "multiples": [],
+        "valuation": {"method": NEED, "method_reason": "", "bps": _metric_value(metrics, "BPS"), "multiples": [],
                       "target_multiple": None, "conclusion": _text(pages.get(PANEL_PAGES["valuation"], {})) or NEED},
         "conclusion": {"points": points},
         "verification": {"claims": _verification(checked) if checked is not None else []},
