@@ -26,6 +26,7 @@ STALE_DAYS = 7
 MARKET_CLOSE = time(15, 30)
 DART_SOURCE = "DART 단일회사 전체 재무제표 API"
 VALUATION_NAMES = ("EPS", "BPS", "시가총액", "PER", "PBR")
+PRICE_METRICS = ("시가총액", "PER", "PBR")
 PER_SHARE_ITEMS = ("기본주당이익(연간)",)
 # account_id -> (row name, statements it may come from); the same accounts also appear in SCE with other meanings.
 OWNER_ITEMS = {
@@ -169,7 +170,7 @@ def valuation_metrics(records, prices, shares, stale, year, first_number, missin
         if missing_note and set(missing) & {"지배주주순이익", "지배주주자본"}:
             reasons.append(missing_note)
         if price is not None and "주가" in inputs and stale:
-            reasons.append(f"주가 검증 실패: {stale}")
+            reasons.append(f"주가 검증 실패: 종가가 {STALE_DAYS}일 넘게 오래됨")
         reasons += [f"{label}이(가) 0 이하라 {name} 보류" for label in positive
                     if label not in missing and float(inputs[label]["값"]) <= 0]
         value = None if reasons else float(compute({k: float(r["값"]) for k, r in inputs.items()}))

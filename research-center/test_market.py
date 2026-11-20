@@ -194,7 +194,7 @@ def test_a_stale_close_blocks_only_the_price_based_metrics():
 
     assert metrics.loc[["EPS", "BPS"], "값"].notna().all()
     assert metrics.loc[["시가총액", "PER", "PBR"], "값"].isna().all()
-    assert metrics.loc["PER", "이유"].startswith("주가 검증 실패: 종가 기준일 2026-11-12")
+    assert metrics.loc["PER", "이유"] == "주가 검증 실패: 종가가 7일 넘게 오래됨"
 
 
 def test_a_loss_keeps_a_negative_eps_but_holds_per():
@@ -238,3 +238,49 @@ def test_the_computed_eps_is_shown_next_to_darts_basic_eps_without_judging_the_g
     print(line)
     assert line == ("EPS 대조: 계산 EPS 29,161.38원(M2, 연말 유통주식수 기준) / "
                     "DART 기본주당이익 29,342원(가중평균 주식수 기준) / 차이 -0.62%")
+
+
+def test_part_questions_stay_the_same_when_only_the_run_date_changes(monkeypatch):
+    api = c.finalize(pd.DataFrame([{"항목": "매출액(연간)", "값": v * p.EOK, "기준일": f"{y}-12-31"} for y, v in ((2024, 100), (2025, 110))]),
+                     level=1, source="DART API", source_url=URL, reliability="상", basis="연결", unit="원",
+                     disclosed="20260311", stock_code="004370", stock_name="농심")
+    shares = c.finalize(pd.DataFrame({"항목": m.SHARES_ITEMS, "값": (6082642, 248454, 5834188)}), level=1,
+                        source=m.SHARES_SOURCE, source_url="https://dart.fss.or.kr", reliability="상", basis=c.NOT_APPLICABLE,
+                        base_date="2025-12-31", disclosed="20260311", unit="주", stock_code="004370", stock_name="농심")
+    # The same closes on both run dates, and old enough to fail the 7-day check on both.
+    closes = c.collect_table(daily("2026-11-10", "2026-11-12"), {"Close": ("종가", "원")}, level=1, source="테스트 시세 API",
+                             source_url="https://apis.data.go.kr", reliability="상", basis=c.NOT_APPLICABLE,
+                             disclosed=c.SAME_AS_DATE, stock_code="004370", stock_name="농심")
+    monkeypatch.setattr(p, "collect_dart", lambda code, y, q, fs, key: api[api["기준일"].str.startswith(str(y))])
+    monkeypatch.setattr(p, "report_rcept_no", lambda rows, year: "20260311000001")
+    monkeypatch.setattr(p, "fetch_document", lambda *args: None)
+    monkeypatch.setattr(p, "load_document", lambda path: None)
+    monkeypatch.setattr(p, "segment_sales", lambda root, year, rows: (pd.DataFrame(), [], []))
+    monkeypatch.setattr(p, "excerpts", lambda *args: [])
+    monkeypatch.setattr(p, "industry_code", lambda code, key: "10790")
+    monkeypatch.setattr(p, "price_records", lambda *args: closes)
+    monkeypatch.setattr(p, "share_records", lambda *args: shares)
+    monkeypatch.setattr(p, "owner_records", lambda *args: owner_rows())
+    specs = {n: p.load_prompt(PROMPTS / f"{n}.md") for n in p.PART_NAMES}
+
+    def questions_on(day):
+        when = datetime(2026, 11, day, 10, 0, tzinfo=c.KST)
+
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return when
+
+        monkeypatch.setattr(p, "datetime", Clock)
+        monkeypatch.setattr(p, "now_kst", lambda: when.strftime("%Y-%m-%d %H:%M"))
+        bundle = p.build_bundle("004370", 2025, 2, "key")
+        assert bundle.price_stale and bundle.industry_code == "10790"
+        return {n: p.part_question(n, specs[n], bundle) for n in p.PART_NAMES}
+
+    first, second = questions_on(20), questions_on(21)
+
+    assert first == second
+    assert "조회 시점" in first["industry"] and "2026-11-20" not in first["industry"]
+    assert "현재 주가" in first["valuation"] and "테스트 시세 API" in first["valuation"]
+    for name in ("industry", "company"):
+        assert "현재 주가" not in first[name] and "테스트 시세 API" not in first[name] and "주가 검증 실패" not in first[name]

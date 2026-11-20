@@ -27,7 +27,7 @@ from excerpt_check import excerpt_check
 from engine import (FIX, METRIC_SPECS, UNITS, ask_claims, build_sources, check_claims, claims_prompt,
                     compute_metrics, load_claims, render_check, with_ids)
 from layout import PAGES
-from market import (PER_SHARE_ITEMS, VALUATION_NAMES, current_price, owner_records, price_problem, price_records, share_records,
+from market import (PER_SHARE_ITEMS, PRICE_METRICS, VALUATION_NAMES, current_price, owner_records, price_problem, price_records, share_records,
                     valuation_metrics)
 
 EOK = 10 ** 8
@@ -42,6 +42,11 @@ DAILY_LIMIT = 20
 # shortcut: the quota day starts at midnight US Pacific = 17:00 KST in winter; it is 16:00 KST from March to early November.
 QUOTA_DAY_START_HOUR = 17
 PART_NAMES = ("industry", "company", "valuation")
+# Parts whose question carries the close and the metrics built on it. A close changes every trading day, so any other
+# part given it would be asked again daily; center gets no data block, only the parts' text.
+PRICE_PARTS = ("valuation",)
+# The overview is fetched as it is now, so its range is the query itself; a date here would change every question daily.
+QUERIED = "조회 시점"
 PROMPT_NAMES = (*PART_NAMES, "center", "qa", "cross_exam")
 PROMPT_KEYS = {"파트", "리포트 칸", "데이터"}
 DATA_KEYS = {"재무", "지표", "사업부문", "사업 설명"}
@@ -154,7 +159,7 @@ def build_bundle(stock_code, year, n_years, api_key):
         # Appended after the engine's numbering so every existing S# keeps its number.
         sources = pd.concat([sources, pd.DataFrame([{
             "source_id": f"S{len(sources) + 1}", "출처": COMPANY_SOURCE, "출처 URL": "https://opendart.fss.or.kr",
-            "줄 수": 1, "수집 방법": "1 공식 API", "신뢰도": "상", "기준일 범위": now_kst()[:10]}])], ignore_index=True)
+            "줄 수": 1, "수집 방법": "1 공식 API", "신뢰도": "상", "기준일 범위": QUERIED}])], ignore_index=True)
     name, now = records["종목명"].iloc[0], datetime.now(KST)
     sources, prices, price_error = append_source(sources, lambda: price_records(stock_code, name, years, now))
     sources, shares, shares_error = append_source(sources, lambda: share_records(stock_code, name, year, api_key))
@@ -197,8 +202,7 @@ def price_line(bundle):
     row = current_price(bundle.prices)
     if row is None:
         return "현재 주가: 없음" + (f" ({bundle.price_error})" if bundle.price_error else "") + ". 밸류에이션 괴리율 계산 불가"
-    line = f"현재 주가: {row['값']:,.0f}원 (기준일 {row['기준일']}, 출처 {row['source_id']})"
-    return line + (f". 괴리율: 검증 실패 ({bundle.price_stale})" if bundle.price_stale else "")
+    return f"현재 주가: {row['값']:,.0f}원 (기준일 {row['기준일']}, 출처 {row['source_id']})"
 
 
 def shares_line(bundle):
@@ -248,12 +252,18 @@ def _recent(table, scope, year):
     return table if scope is None else table[table["기준일"].str[:4].astype(int) > year - scope.years]
 
 
-def bundle_text(bundle, scope=None):
+def bundle_text(bundle, scope=None, with_price=True):
     """The data block placed in a part's prompt; scope None means everything. Shown values are rounded
-    so that copying them always stays within the engine's tolerance (half the last written digit)."""
+    so that copying them always stays within the engine's tolerance (half the last written digit).
+    with_price False leaves out the close, its source and the metrics computed from it (see PRICE_PARTS)."""
     left_out = "(지시서 데이터 범위에서 뺌)"
     records = _recent(bundle.records, scope, bundle.year)
     metrics = _recent(bundle.metrics, scope, bundle.year)
+    sources = bundle.sources
+    if not with_price:
+        metrics = metrics[~metrics["지표"].isin(PRICE_METRICS)]
+        if not bundle.prices.empty:
+            sources = sources[~sources["source_id"].isin(bundle.prices["source_id"])]
     metrics = metrics.assign(
         값=metrics["값"].map(lambda v: "" if is_blank(v) else f"{v:.2f}"),
         **{"입력 rid": metrics["입력 rid"].map(" ; ".join)})
@@ -270,9 +280,9 @@ def bundle_text(bundle, scope=None):
         "## 회사 정보",
         (f"항목,값,source_id\n업종코드(KSIC),{bundle.industry_code},{_company_source(bundle)}\n(업종명은 DART가 주지 않아 코드만)"
          if bundle.industry_code else f"(업종코드 없음{': ' + bundle.industry_problem if bundle.industry_problem else ''})"),
-        "## 주가와 주식수 (종가는 원, 주식수는 주. EPS·BPS·시가총액·PER·PBR은 지표 표에 있음)",
-        price_line(bundle),
-        *([_market_rows(bundle.prices)] if not bundle.prices.empty else []),
+        *(["## 주가와 주식수 (종가는 원, 주식수는 주. EPS·BPS·시가총액·PER·PBR은 지표 표에 있음)", price_line(bundle),
+           *([_market_rows(bundle.prices)] if not bundle.prices.empty else [])]
+          if with_price else ["## 주식수 (주. EPS·BPS는 지표 표에 있음)"]),
         shares_line(bundle),
         *([_market_rows(bundle.shares)] if not bundle.shares.empty else []),
         "## 재무 표 (값은 원 단위 원본, 값(억원)은 코드가 바꾼 읽기용)",
@@ -286,9 +296,15 @@ def bundle_text(bundle, scope=None):
         "## 사업 설명 발췌",
         excerpt_text or ("(없음)" if scope is None or scope.sections else left_out),
         "## 출처",
-        _csv(bundle.sources[["source_id", "출처", "출처 URL", "기준일 범위", "신뢰도"]]),
+        _csv(sources[["source_id", "출처", "출처 URL", "기준일 범위", "신뢰도"]]),
     ]
     return "\n\n".join(parts) + "\n"
+
+
+def part_question(name, spec, bundle):
+    """A part's first-round question: its prompt body, the fixed rules, its slots and its data block."""
+    return (f"{_fill(spec.body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(name, '')}\n\n[쓸 칸]\n{_slots(spec.pages)}\n\n"
+            f"{bundle_text(bundle, spec.scope, name in PRICE_PARTS)}")
 
 
 def _stop(name, reason):
@@ -580,14 +596,14 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
         state["excerpt_sources"] = {e["source_id"] for e in bundle.excerpts if e["source_id"]}
         caller.status.append(("데이터 묶음", "✅", f"재무 {len(bundle.records)}줄, 사업부문 {len(bundle.segments)}줄, "
                                                   f"발췌 {len(bundle.excerpts)}개, 지표 {len(bundle.metrics)}개, "
-                                                  f"업종코드 {bundle.industry_code or '없음'}"))
-        caller.status.append(("주가", "⚠" if bundle.prices.empty or bundle.price_stale else "✅", price_line(bundle)))
+                                                  f"업종코드 {bundle.industry_code or '없음'} (기업개황 {now_kst()[:10]} 조회)"))
+        caller.status.append(("주가", "⚠" if bundle.prices.empty or bundle.price_stale else "✅",
+                              price_line(bundle) + (f". 괴리율: 검증 실패 ({bundle.price_stale})" if bundle.price_stale else "")))
         caller.status.append(("주식수", "⚠" if bundle.shares.empty else "✅", shares_line(bundle)))
         if eps_line(bundle):
             caller.status.append(("EPS 대조", "ℹ", eps_line(bundle)))
         all_records = all_rows(bundle)
-        base = {n: (f"{_fill(specs[n].body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(n, '')}\n\n[쓸 칸]\n{_slots(specs[n].pages)}\n\n"
-                    f"{bundle_text(bundle, specs[n].scope)}") for n in PART_NAMES}
+        base = {n: part_question(n, specs[n], bundle) for n in PART_NAMES}
         notes = {}
         for rnd in range(max_qa_rounds + 1):
             stage = f"파트 (바퀴 {rnd})"
