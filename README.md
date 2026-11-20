@@ -3,6 +3,7 @@
 KFA AI 에이전트 스터디 1조의 레포입니다. 공통 엔진이 DART에서 재무와 사업보고서를 모으고 숫자를 계산·대조하며, 조원은 각자 자기 파트의 지시서만 고쳐서 리포트를 고도화합니다.
 
 - 작업 규칙, 실행 방법, 키 준비: [AGENTS.md](AGENTS.md)
+- 내 PC 설치: `py -m pip install -r requirements.txt`
 - 내 폴더: `members/industry`, `members/company`, `members/valuation`, `members/center`
 - Colab 실행: `notebooks/research_center.ipynb`
 
