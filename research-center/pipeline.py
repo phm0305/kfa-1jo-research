@@ -6,11 +6,13 @@ research-center/ on sys.path. Member-facing messages are Korean on purpose.
 [한국어 안내] 이 파일은 고치지 않고 실행만 해요.
     build_bundle()  DART에서 재무와 사업보고서 원문을 받아 공통 표·출처 목록·지표·사업부문·발췌를 만들고, 주가와 주식수를 맨 뒤에 붙여요 (파트에 넘기는 데이터 묶음)
     bundle_text()   데이터 묶음을 AI에게 넘길 글자로 바꿔요
+    new_run_dir()   새 결과 폴더를 만들고, 같은 종목·연도의 직전 폴더에서 첫 바퀴(r0) 답을 가져와요
     run()           지시서 6개로 파트 → 센터장 → 숫자 대조 → 품질 점검 → 반대신문을 끝까지 돌려 리포트와 검증 기록지를 만들어요
 """
 
 import json
 import re
+import shutil
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -460,11 +462,16 @@ def calls_since(dirs, since):
     """Answered Gemini calls per model in the record files (*_기록.json) under dirs since `since`, and whether
     any of them saw the main model's daily-limit error. The count undercounts: a record is overwritten when
     its question changes, and calls made elsewhere leave none; the limit error does not."""
-    counts, hit = Counter(), False
+    counts, hit, seen = Counter(), False, set()
     for folder in dirs:
         for path in Path(folder).rglob("*_기록.json"):
+            text = path.read_text(encoding="utf-8")
+            # new_run_dir copies records into the next folder; a copy is the same call, not another one.
+            if text in seen:
+                continue
+            seen.add(text)
             try:
-                record = json.loads(path.read_text(encoding="utf-8"))
+                record = json.loads(text)
                 called = datetime.strptime(record["호출 시각"], "%Y-%m-%d %H:%M").replace(tzinfo=KST)
             except (json.JSONDecodeError, KeyError, ValueError, TypeError):
                 continue
@@ -522,22 +529,48 @@ def _tag_alone(name, claims, owners):
     return kept
 
 
-def run(stock_code, year, prompts_dir, run_dir, api_key, dart_key, max_qa_rounds=1, quota_dirs=("data",)):
+def find_prompts(prompts_dirs):
+    """{prompt name: path}, each taken from the first folder in prompts_dirs that has it. A prompt in none of them
+    points at the last folder, so reading it fails with that folder's path in the message."""
+    return {n: next((Path(d) / f"{n}.md" for d in prompts_dirs if (Path(d) / f"{n}.md").exists()),
+                    Path(prompts_dirs[-1]) / f"{n}.md") for n in PROMPT_NAMES}
+
+
+def new_run_dir(runs_root, stock_code, year, now):
+    """A fresh folder runs_root/<stock>_<year>_<MMDD_HHMM>, seeded with the first-round (r0) answers and records of
+    the most recent earlier folder for the same stock and year, so an unchanged question is not asked again.
+    Later rounds are not copied: render_html takes the highest round in a folder, so a stale r1 would win."""
+    runs_root = Path(runs_root)
+    run_dir = runs_root / f"{stock_code}_{year}_{now:%m%d_%H%M}"
+    if run_dir.exists():
+        return run_dir
+    earlier = [d for d in runs_root.glob(f"{stock_code}_{year}_*") if d.is_dir()]
+    run_dir.mkdir(parents=True)
+    if earlier:
+        for path in max(earlier, key=lambda d: d.stat().st_mtime).glob("*_r0*.json"):
+            shutil.copy2(path, run_dir / path.name)
+    return run_dir
+
+
+def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_rounds=1, quota_dirs=("data",)):
     """Parts -> center -> one number check over all their text -> quality check -> (fix flagged parts,
     center again, number check again) -> cross-examination -> report.md and verification.md.
     A failed stage, or the main model hitting its daily limit, stops the stages after it;
-    rerunning reuses every answer whose question is unchanged. quota_dirs: where record files of
-    calls made with the same key live, for the budget printed before the run."""
+    rerunning reuses every answer whose question is unchanged. prompts_dirs: folders searched in order for
+    each prompt (see find_prompts). quota_dirs: where record files of calls made with the same key live,
+    for the budget printed before the run."""
     run_dir = Path(run_dir)
     bundle = None
     caller = _Caller(run_dir, api_key)
     state = {"qa": [], "cross": None, "checked": None, "owners": {}, "answers": {}, "bad_format": set(), "missed": {},
              "excerpts": {}, "excerpt_sources": set()}
-    stage = "호출 예산"
+    stage = "지시서 읽기"
     try:
+        paths = find_prompts(prompts_dirs)
+        caller.status.append(("지시서", "ℹ", ", ".join(f"{n}: {path.as_posix()}" for n, path in paths.items())))
+        specs = {n: load_prompt(path) for n, path in paths.items()}
+        stage = "호출 예산"
         _check_budget(quota_dirs, max_qa_rounds)
-        stage = "지시서 읽기"
-        specs = {n: load_prompt(Path(prompts_dir) / f"{n}.md") for n in PROMPT_NAMES}
         stage = "데이터 묶음"
         n_years = max([2, *(specs[n].scope.years for n in PART_NAMES if specs[n].scope)])
         bundle = build_bundle(stock_code, year, n_years, dart_key)

@@ -2,3 +2,7 @@
 data/
 __pycache__/
 .ipynb_checkpoints/
+members/*/runs/*/*
+!members/*/runs/*/report.md
+!members/*/runs/*/report.html
+!members/*/runs/*/verification.md

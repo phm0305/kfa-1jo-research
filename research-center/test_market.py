@@ -1,7 +1,7 @@
 """Offline tests for market.py and how prices and shares join the bundle.
 
 Run from the repo root: py -B -m pytest research-center/test_market.py -q
-(engine/ and research-center/ must be on PYTHONPATH)
+(conftest.py at the repo root puts engine/ and research-center/ on sys.path)
 """
 
 import shutil
@@ -108,7 +108,7 @@ def run_with(bundle, tmp_path, monkeypatch):
     monkeypatch.setattr(e, "_call_gemini", fake_gemini)
     prompts = tmp_path / "prompts"
     shutil.copytree(PROMPTS, prompts)
-    return p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    return p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
 
 def test_the_price_shows_with_its_date_and_source_on_page_one_the_data_block_and_the_page(tmp_path, monkeypatch):

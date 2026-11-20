@@ -1,7 +1,7 @@
 """Offline tests for dart_doc.py on a small hand-made filing.
 
 Run from the repo root: py -B -m pytest research-center/test_dart_doc.py -q
-(engine/ or the deployment repo's tools/ must be on PYTHONPATH)
+(conftest.py at the repo root puts engine/ on sys.path)
 """
 
 import pandas as pd

@@ -1,12 +1,13 @@
 """Offline end-to-end test for pipeline.run with a fake bundle and fake Gemini answers.
 
 Run from the repo root: py -B -m pytest research-center/test_pipeline.py -q
-(engine/ and research-center/ must be on PYTHONPATH)
+(conftest.py at the repo root puts engine/ and research-center/ on sys.path)
 """
 
 import json
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -77,7 +78,7 @@ def test_run_goes_through_fixes_only_the_flagged_part_and_reuses_everything_on_r
     prompts = tmp_path / "prompts"
     shutil.copytree(PROMPTS, prompts)
 
-    first = p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    first = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
     # parts 3 + industry format retry + center + claims + qa, then industry + center + claims again, then cross-exam
     assert (first.calls, first.reused) == (11, 2)
@@ -99,7 +100,7 @@ def test_run_goes_through_fixes_only_the_flagged_part_and_reuses_everything_on_r
     industry_question = json.loads((tmp_path / "run" / "industry_r0_기록.json").read_text(encoding="utf-8"))["질문"]
     assert "개선, 악화, 횡보 중 한 단어만" in industry_question
 
-    second =p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    second =p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
     assert (second.calls, second.reused) == (0, 13)
 
 
@@ -109,7 +110,7 @@ def test_a_part_that_keeps_the_wrong_key_is_marked_for_review_without_the_qualit
     prompts = tmp_path / "prompts"
     shutil.copytree(PROMPTS, prompts)
 
-    result = p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
     assert [s[0] for s in result.status].count("valuation_fmt_r0") == 1
     assert "## 4쪽 기업가치 평가\n\n### 본문\n\n(확인 필요" in result.report.read_text(encoding="utf-8")
@@ -122,7 +123,7 @@ def test_a_text_with_numbers_but_no_claims_is_extracted_alone_once_then_marked(t
     prompts = tmp_path / "prompts"
     shutil.copytree(PROMPTS, prompts)
 
-    result = p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
     # the fake extractor never finds the company sentence; round 1 asks the same question again, so it is reused
     assert [s[0] for s in result.status].count("claims_company_r0") == 1
@@ -136,7 +137,7 @@ def test_a_typo_in_a_prompt_blank_stops_with_the_file_name(tmp_path):
     path = prompts / "company.md"
     path.write_text(path.read_text(encoding="utf-8") + "{종목이름}의 매출을 분석해 줘\n", encoding="utf-8")
 
-    result = p.run("004370", 2025, prompts, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
     assert result.status[-1][1] == "❌" and "company.md" in result.status[-1][2] and "종목이름" in result.status[-1][2]
 
@@ -147,9 +148,9 @@ def test_a_run_that_cannot_finish_on_todays_main_model_quota_never_starts(tmp_pa
     quota = tmp_path / "quota"
     quota.mkdir()
     for n in range(p.DAILY_LIMIT - p.min_calls(1) + 1):
-        (quota / f"x{n}_기록.json").write_text(json.dumps({"모델": p.GEMINI_MODEL, "호출 시각": c.now_kst()}), encoding="utf-8")
+        (quota / f"x{n}_기록.json").write_text(json.dumps({"질문": f"q{n}", "모델": p.GEMINI_MODEL, "호출 시각": c.now_kst()}), encoding="utf-8")
 
-    result = p.run("004370", 2025, PROMPTS, tmp_path / "run", "key", "dart", quota_dirs=[quota])
+    result = p.run("004370", 2025, [PROMPTS], tmp_path / "run", "key", "dart", quota_dirs=[quota])
 
     assert calls == [] and result.status[-1][0] == "호출 예산" and result.status[-1][1] == "❌"
 
@@ -163,7 +164,7 @@ def test_a_recorded_daily_limit_error_counts_as_no_calls_left_whatever_the_count
         "모델": p.GEMINI_FALLBACK_MODEL, "호출 시각": c.now_kst(),
         "오류": [f"{p.GEMINI_MODEL} 429: GenerateRequestsPerDayPerProjectPerModel-FreeTier"]}), encoding="utf-8")
 
-    result = p.run("004370", 2025, PROMPTS, tmp_path / "run", "key", "dart", quota_dirs=[quota])
+    result = p.run("004370", 2025, [PROMPTS], tmp_path / "run", "key", "dart", quota_dirs=[quota])
 
     assert calls == [] and result.status[-1][0] == "호출 예산"
 
@@ -178,7 +179,7 @@ def test_hitting_the_daily_limit_mid_run_stops_after_that_stage_and_still_writes
     monkeypatch.setattr(p, "build_bundle", fake_bundle)
     monkeypatch.setattr(e, "_call_gemini", limited)
 
-    result = p.run("004370", 2025, PROMPTS, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+    result = p.run("004370", 2025, [PROMPTS], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
 
     assert result.status[-1][1] == "❌" and "하루 한도" in result.status[-1][2] and "center_r0.json" in result.status[-1][2]
     assert not (tmp_path / "run" / "claims_r0.json").exists()
@@ -195,3 +196,40 @@ def test_page_paragraphs_split_only_on_blank_lines_and_keep_the_point_with_its_l
     import web_report as w
     assert w._paragraphs("요점 [S1]\n- 근거 하나 [S1]\n- 근거 둘 [S2]\n\n다음 문단") == [
         "요점 [S1]\n- 근거 하나 [S1]\n- 근거 둘 [S2]", "다음 문단"]
+
+
+def test_each_prompt_comes_from_the_first_folder_that_has_it_and_the_first_status_line_says_which(tmp_path, monkeypatch):
+    monkeypatch.setattr(p, "build_bundle", fake_bundle)
+    monkeypatch.setattr(e, "_call_gemini", fake_gemini)
+    mine, borrowed = tmp_path / "members/industry/prompts", tmp_path / "members/company/prompts"
+    for folder, name in ((mine, "industry"), (borrowed, "company")):
+        folder.mkdir(parents=True)
+        shutil.copy(PROMPTS / f"{name}.md", folder)
+
+    result = p.run("004370", 2025, [borrowed, mine, PROMPTS], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+
+    assert result.status[0][:2] == ("지시서", "ℹ")
+    shown = dict(part.split(": ") for part in result.status[0][2].split(", "))
+    assert shown["industry"] == (mine / "industry.md").as_posix()
+    assert shown["company"] == (borrowed / "company.md").as_posix()
+    assert shown["center"] == (PROMPTS / "center.md").as_posix()
+
+
+def test_a_new_run_folder_reuses_the_last_runs_first_round_so_only_the_edited_part_is_asked_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(p, "build_bundle", fake_bundle)
+    monkeypatch.setattr(e, "_call_gemini", fake_gemini)
+    prompts, runs = tmp_path / "prompts", tmp_path / "runs"
+    shutil.copytree(PROMPTS, prompts)
+    first_dir = p.new_run_dir(runs, "004370", 2025, datetime(2026, 11, 20, 10, 0))
+    p.run("004370", 2025, [prompts], first_dir, "key", "dart", quota_dirs=[runs])
+    counted = p.calls_since([runs], datetime(2000, 1, 1, tzinfo=c.KST))
+    industry = prompts / "industry.md"
+    industry.write_text(industry.read_text(encoding="utf-8") + "\n한 문장 더.\n", encoding="utf-8")
+
+    second_dir = p.new_run_dir(runs, "004370", 2025, datetime(2026, 11, 20, 11, 0))
+
+    assert not list(second_dir.glob("*_r1*")) and list(second_dir.glob("company_r0*"))
+    assert p.calls_since([runs], datetime(2000, 1, 1, tzinfo=c.KST)) == counted
+    second = p.run("004370", 2025, [prompts], second_dir, "key", "dart", quota_dirs=[runs])
+    marks = {s[0]: s[1] for s in second.status}
+    assert (marks["industry_r0"], marks["company_r0"], marks["valuation_r0"]) == ("✅", "♻", "♻")
