@@ -24,7 +24,7 @@
 내 PC (Windows PowerShell, 레포 폴더에서):
 
 ```
-py -m pip install pandas requests pyyaml google-genai python-dotenv
+py -m pip install -r requirements.txt
 py run.py --member industry --stock 004370 --year 2025
 py run.py --member industry --stock 004370 --year 2025 --with company
 ```
