@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KFA 1조 리서치 센터 · 농심(004370) 센터장 UI 프리뷰</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --subtle: #f8fafc;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --muted: #475569;
+    --soft: #64748b;
+    --primary: #1d4ed8;
+    --primary-bg: #eff6ff;
+    --primary-bd: #bfdbfe;
+    --crimson: #c8102e;
+    --crimson-bg: #fff1f2;
+    --crimson-bd: #fecdd3;
+    --green: #047857;
+    --green-bg: #ecfdf5;
+    --green-bd: #a7f3d0;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+    --amber-bd: #fde68a;
+    --navy: #0f2744;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .brand-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .brand-badge {
+    background: var(--navy);
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+  }
+  .stock-title { font-size: 16px; font-weight: 800; color: var(--text); }
+  .stock-sub { font-size: 12px; color: var(--muted); }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tab-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .tab-btn:hover { background: var(--subtle); color: var(--text); border-color: var(--border-strong); }
+  .tab-btn.active {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+    box-shadow: 0 2px 6px rgba(15, 39, 68, 0.18);
+  }
+
+  .container { max-width: 1280px; margin: 20px auto 48px; padding: 0 20px; display: grid; gap: 20px; }
+  .page-section.hidden { display: none; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+  .page-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .page-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary);
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-bd);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .meta-pill strong { color: var(--text); }
+  .meta-pill.warn { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber); }
+
+  .headline-box {
+    background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+    border: 1px solid var(--primary-bd);
+    border-left: 5px solid var(--navy);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .headline-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .headline-text {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .grid-12 {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  .col-8 { grid-column: span 8; display: grid; gap: 16px; }
+  .col-4 { grid-column: span 4; display: grid; gap: 14px; }
+  @media (max-width: 960px) {
+    .col-8, .col-4 { grid-column: span 12; }
+  }
+
+  .sub-panel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px 16px;
+    background: var(--surface);
+  }
+  .sub-panel.soft { background: var(--subtle); }
+  .sub-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .sub-head h3 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--subtle);
+    color: var(--muted);
+  }
+  .tag.blue { background: var(--primary-bg); border-color: var(--primary-bd); color: var(--primary); }
+  .tag.green { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
+  .tag.amber { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber); }
+  .tag.crimson { background: var(--crimson-bg); border-color: var(--crimson-bd); color: var(--crimson); }
+
+  .src-chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-bd);
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-left: 2px;
+    vertical-align: baseline;
+  }
+  .bullet-list { margin: 0; padding-left: 18px; display: grid; gap: 7px; font-size: 13px; color: #1e293b; }
+  .bullet-list li::marker { color: var(--navy); }
+
+  .tp-mini-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 15px;
+    background: #fff;
+    transition: border-color .15s;
+  }
+  .tp-mini-card:hover { border-color: var(--primary-bd); }
+  .tp-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: var(--mono);
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+  .link-jump {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .link-jump:hover { background: var(--primary-bg); border-color: var(--primary-bd); }
+
+  .fin-box { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .fin-title {
+    background: var(--crimson);
+    color: #fff;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  table.fin-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.fin-table th, table.fin-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  table.fin-table th:first-child, table.fin-table td:first-child { text-align: left; }
+  table.fin-table thead th { background: var(--subtle); color: var(--muted); font-weight: 700; }
+  table.fin-table tr.main-row td { font-weight: 700; color: var(--text); }
+  table.fin-table tr.sub-row td { color: var(--soft); font-style: italic; font-size: 12px; }
+  table.fin-table tr.opm-row td { color: var(--crimson); font-weight: 600; font-style: italic; font-size: 12px; }
+
+  .sb-box {
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 14px;
+  }
+  .sb-title { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .kv-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed #e2e8f0; }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .k { color: var(--muted); }
+  .kv-row .v { font-weight: 700; font-family: var(--mono); color: var(--text); }
+  .rating-big { font-size: 20px; font-weight: 800; color: var(--amber); text-align: center; margin: 4px 0 2px; }
+  .rating-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); text-align: center; font-size: 11.5px; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: grid;
+    gap: 12px;
+  }
+  .chart-wrap { width: 100%; overflow-x: auto; }
+  .chart-wrap svg { display: block; width: 100%; min-width: 640px; height: auto; }
+  .hover-readout {
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .seg-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg-btn {
+    border: 0;
+    background: #fff;
+    color: var(--muted);
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .seg-btn.active { background: var(--navy); color: #fff; }
+
+  .sim-panel {
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .sim-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+  }
+  .sim-ctrl { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .sim-ctrl label { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .sim-ctrl input[type="range"] { width: 100%; accent-color: var(--navy); }
+  .sim-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .sim-stat { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .sim-stat .sk { font-size: 11px; color: var(--soft); }
+  .sim-stat .sv { font-size: 16px; font-weight: 800; font-family: var(--mono); margin-top: 2px; }
+
+  .risk-alert {
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-bd);
+    border-left: 4px solid var(--amber);
+    border-radius: 10px;
+    padding: 13px 15px;
+    font-size: 12.5px;
+  }
+  .risk-alert h4 { margin: 0 0 6px; font-size: 13px; color: var(--amber); }
+
+  .tp-full-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    background: #fff;
+    display: grid;
+    gap: 12px;
+  }
+  .tp-full-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .tp-thesis { font-size: 16px; font-weight: 800; color: var(--navy); margin: 0; line-height: 1.45; }
+  .tp-risk-box {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: #7f1d1d;
+  }
+  .tp-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--soft);
+  }
+  .verify-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .v-tile { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--subtle); }
+  .v-tile .vk { font-size: 12px; color: var(--soft); }
+  .v-tile .vv { font-size: 20px; font-weight: 800; font-family: var(--mono); margin-top: 3px; }
+  .v-tile.good .vv { color: var(--green); }
+  .v-tile.blue .vv { color: var(--primary); }
+  .omitted-note {
+    font-size: 12px;
+    color: var(--soft);
+    background: var(--subtle);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 13px;
+  }
+  .footnote { font-size: 11.5px; color: var(--soft); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-wrap">
+      <span class="brand-badge">1조 AI 리서치 센터 · 센터장 프리뷰 시안</span>
+      <div>
+        <div class="stock-title">농심 <span class="num" style="color:var(--soft);font-weight:600;">(004370)</span> <span class="tag blue" style="margin-left:6px;">2025 결산 · v2.4 실데이터 기반</span></div>
+        <div class="stock-sub">업종: 식품제조 및 판매 · 실행본: <span class="num">004370_2025_1121_2341</span> (전 단계 완주 · <span class="num">FIX 0</span>)</div>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="페이지 전환">
+      <button type="button" class="tab-btn active" data-tab="p1">1장 · 리포트 프리뷰</button>
+      <button type="button" class="tab-btn" data-tab="p2">2장 · Key Charts</button>
+      <button type="button" class="tab-btn" data-tab="p3">3장 · 투자포인트와 검증</button>
+      <button type="button" class="tab-btn" data-tab="all">전체 3장 한눈에 보기</button>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ===================== 1장: 리포트 프리뷰 ===================== -->
+  <section id="sec-p1" class="page-section card">
+    <div class="page-banner">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="page-label">1장 · 리포트 프리뷰</span>
+        <strong style="font-size:15px;">한눈에 보는 투자 요약 (2컬럼 증권사 리포트 레이아웃)</strong>
+      </div>
+      <span class="tag green">도입 요약 4줄 정상 노출 · 미사용 3번 슬롯 숨김 적용</span>
+    </div>
+
+    <div class="meta-bar">
+      <span class="meta-pill"><strong>재무 결산:</strong> <span class="num">2025-12-31</span> <span class="src-chip">S3</span></span>
+      <span class="meta-pill warn"><strong>현재 주가:</strong> 확인 필요 (공식 시세 API 연결 전)</span>
+      <span class="meta-pill warn"><strong>거시 벤치마크:</strong> 확인 필요 (기준금리·S&amp;P 500 CAGR 연결 전)</span>
+      <span class="meta-pill"><strong>주식수 기준:</strong> <span class="num">5,834,188주</span> <span class="src-chip">S7</span></span>
+    </div>
+
+    <div class="headline-box">
+      <div class="headline-kicker">
+        <span>투자 사유 헤드라인 (1문장 · 투자의견·주가·수익률(%) 미포함 원칙 준수)</span>
+        <span class="tag">1쪽 본문 1문단</span>
+      </div>
+      <p class="headline-text">국내 시장에서의 과반 지배력과 미국 등 해외 거점 확장을 바탕으로 완만한 외형 성장과 영업이익률 개선세를 시현하고 있다.</p>
+    </div>
+
+    <div class="grid-12">
+      <!-- 좌측 메인 8컬럼 -->
+      <div class="col-8">
+        <article class="sub-panel">
+          <div class="sub-head">
+            <h3>도입 요약 (핵심 근거 4줄 · 엔진 요청 #7 반영 시안)</h3>
+            <span class="tag blue">기존 template.html 미노출 영역 복원</span>
+          </div>
+          <ul class="bullet-list">
+            <li>국내 라면 시장점유율 <strong class="num">56.3%</strong> <span class="src-chip">S4, E4</span> 및 주력 라면 부문 매출 비중 <strong class="num">85.1%</strong> <span class="src-chip">S4, E2</span>에 달하는 독보적 사업 기반과 <code>NONGSHIM AMERICA, INC.</code> 매출액 <strong class="num">5,791.5억 원</strong>(<span class="num">579,152,021천원</span>) <span class="src-chip">S4, E1</span> 중심의 해외 확장이 구조적 성장 동력으로 작용하고 있다.</li>
+            <li>연결 기준 매출 성장률이 2024년 <strong class="num">0.83%</strong> <span class="src-chip">M1</span>에서 2025년 <strong class="num">2.20%</strong> <span class="src-chip">M4</span>로 상승하고, 영업이익률 또한 2024년 <strong class="num">4.74%</strong> <span class="src-chip">M2</span>에서 2025년 <strong class="num">5.23%</strong> <span class="src-chip">M5</span>로 동반 개선되었다.</li>
+            <li>2025년 기준 EPS <strong class="num">29,161.38원</strong> <span class="src-chip">M7</span> <span class="src-chip">S3, S7</span>과 BPS <strong class="num">485,192.53원</strong> <span class="src-chip">M8</span> <span class="src-chip">S3, S7</span>이 산출되었으나, 현재 주가 미제공으로 목표주가 및 투자의견은 <strong>확인 필요</strong> 상태다 <span class="src-chip">M9~M11</span>.</li>
+            <li>주요 원재료인 수입 소맥 <strong class="num">196 USD/MT</strong> <span class="src-chip">S4, E3</span> 및 수입 팜유 <strong class="num">1,043 USD/MT</strong> <span class="src-chip">S4, E3</span>의 가격 변동성과 해외 시장 경쟁 심화에 따른 판가 전가 지연은 수익성 하방 리스크 요인이다.</li>
+          </ul>
+        </article>
+
+        <div class="sub-panel soft">
+          <div class="sub-head">
+            <h3>핵심 투자포인트 프리뷰 <span style="font-weight:500;color:var(--soft);font-size:12px;">(가변 2개 채택 · 미사용 3번 칸 미출력)</span></h3>
+            <button type="button" class="link-jump" onclick="switchTab('p3')">3장 상세 보기 →</button>
+          </div>
+          <div style="display:grid;gap:10px;">
+            <div class="tp-mini-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div style="display:flex;align-items:flex-start;gap:4px;">
+                  <span class="tp-num">1</span>
+                  <div>
+                    <div style="font-weight:700;color:var(--navy);">국내 과반의 시장 지배력과 해외 주요 거점 확장을 통한 글로벌 외형 성장</div>
+                    <div style="font-size:12.5px;color:var(--muted);margin-top:3px;">라면 M/S <span class="num">56.3%</span> · 스낵 M/S <span class="num">32.1%</span> <span class="src-chip">S4, E4</span>, 라면 매출 비중 <span class="num">85.1%</span> <span class="src-chip">S4, E2</span>, 미국 법인 <span class="num">5,791.5억 원</span> <span class="src-chip">S4, E1</span></div>
+                  </div>
+                </div>
+                <span class="tag blue">비재무 우선</span>
+              </div>
+            </div>
+            <div class="tp-mini-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div style="display:flex;align-items:flex-start;gap:4px;">
+                  <span class="tp-num">2</span>
+                  <div>
+                    <div style="font-weight:700;color:var(--navy);">외형 성장률 회복과 마진율 개선에 따른 이익 창출력 확대 및 밸류에이션 기반</div>
+                    <div style="font-size:12.5px;color:var(--muted);margin-top:3px;">매출 성장률 <span class="num">0.83%→2.20%</span> <span class="src-chip">M1·M4</span>, OPM <span class="num">4.74%→5.23%</span> <span class="src-chip">M2·M5</span>, EPS <span class="num">29,161.38원</span> <span class="src-chip">M7</span> · BPS <span class="num">485,192.53원</span> <span class="src-chip">M8</span></div>
+                  </div>
+                </div>
+                <span class="tag">실적·밸류 통합</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <article class="sub-panel" style="background:var(--amber-bg);border-color:var(--amber-bd);">
+          <div class="sub-head" style="margin-bottom:6px;">
+            <h3 style="color:var(--amber);">Valuation &amp; 동적 기회비용 밴드 결론</h3>
+            <span class="tag amber">투자의견: 확인 필요 (주가·벤치마크 미연결)</span>
+          </div>
+          <p style="margin:0;font-size:13px;color:#78350f;">
+            2025년 지배주주순이익 <span class="num">1,701.3억 원</span>·지배주주자본 <span class="num">28,307.0억 원</span> <span class="src-chip">S3</span> 및 유통주식수 <span class="num">5,834,188주</span> <span class="src-chip">S7</span> 기준 <strong>EPS <span class="num">29,161.38원</span>(M7)</strong>·<strong>BPS <span class="num">485,192.53원</span>(M8)</strong>이 산출되었습니다(공시 기본주당이익 <span class="num">29,342원</span> 대비 차이 <span class="num">-0.62%</span>). 다만 공식 주가 API 연결 전이라 시가총액·PER·PBR(<span class="num">M9~M11</span>)과 기대수익률 산출을 멈춤 조건에 따라 <strong>확인 필요</strong>로 보류합니다.
+          </p>
+        </article>
+
+        <div class="fin-box">
+          <div class="fin-title">
+            <span>요약 연결포괄손익계산서 및 주요 재무비율 (농심 · DART 연결)</span>
+            <span style="font-weight:500;font-size:11.5px;opacity:.92;">단위: 억 원, % (천단위 콤마 통일)</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="fin-table">
+              <thead>
+                <tr>
+                  <th>항목 (연결 · K-IFRS)</th>
+                  <th>2023 <span class="src-chip">S1</span></th>
+                  <th>2024 <span class="src-chip">S2</span></th>
+                  <th>2025 <span class="src-chip">S3</span></th>
+                  <th>비고 / 지표 ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="main-row"><td>매출액</td><td class="num">34,105.6</td><td class="num">34,387.3</td><td class="num">35,143.2</td><td class="num" style="font-size:11.5px;color:var(--soft);">S1·S2·S3</td></tr>
+                <tr class="sub-row"><td style="padding-left:22px;">매출 성장률 (YoY)</td><td class="num">—</td><td class="num">+0.83%</td><td class="num">+2.20%</td><td><span class="src-chip">M1</span> <span class="src-chip">M4</span></td></tr>
+                <tr class="main-row"><td>영업이익</td><td class="num">2,120.6</td><td class="num">1,630.7</td><td class="num">1,839.3</td><td class="num" style="font-size:11.5px;color:var(--soft);">S1·S2·S3</td></tr>
+                <tr class="opm-row"><td style="padding-left:22px;">영업이익률 (OPM)</td><td class="num">6.22%*</td><td class="num">4.74%</td><td class="num">5.23%</td><td><span class="src-chip">M2</span> <span class="src-chip">M5</span></td></tr>
+                <tr class="main-row"><td>당기순이익</td><td class="num">1,714.7</td><td class="num">1,576.3</td><td class="num">1,700.5</td><td class="num" style="font-size:11.5px;color:var(--soft);">2025 지배: 1,701.3</td></tr>
+                <tr><td>부채비율</td><td class="num">32.53%*</td><td class="num">34.61%</td><td class="num">35.00%</td><td><span class="src-chip">M3</span> <span class="src-chip">M6</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:6px 12px;font-size:11px;color:var(--soft);background:var(--subtle);">* 2023년 OPM(6.22%) 및 부채비율(32.53%)은 S1 DART 원자료(2,120.6÷34,105.6 / 7,939.5÷24,408.0) 참고 표기이며, 엔진 공식 지표표(M#)는 2024~2025년에 부여되어 있습니다.</div>
+        </div>
+      </div>
+
+      <!-- 우측 사이드바 4컬럼 -->
+      <aside class="col-4">
+        <div class="sb-box">
+          <div class="sb-title">
+            <span>Rating (동적 밴드 판정)</span>
+            <span class="tag amber">API 대기</span>
+          </div>
+          <div class="rating-big">확인 필요</div>
+          <div style="text-align:center;font-size:11.5px;color:var(--soft);">현재가 및 거시 기준선 연동 시 자동 산출</div>
+          <div class="rating-grid">
+            <div><div style="color:var(--soft);">현재주가</div><div class="num" style="font-weight:700;">확인 필요</div></div>
+            <div><div style="color:var(--soft);">목표(Base)</div><div class="num" style="font-weight:700;">확인 필요</div></div>
+            <div><div style="color:var(--soft);">기대수익률</div><div class="num" style="font-weight:700;">계산 불가</div></div>
+          </div>
+        </div>
+
+        <div class="sb-box">
+          <div class="sb-title"><span>동적 기회비용 밴드 기준</span><span class="tag">3-2 규칙</span></div>
+          <div class="kv-row"><span class="k">한국은행 기준금리 (Rf)</span><span class="v" style="color:var(--amber);">확인 필요</span></div>
+          <div class="kv-row"><span class="k">S&amp;P 500 10Y CAGR</span><span class="v" style="color:var(--amber);">확인 필요</span></div>
+          <div class="kv-row"><span class="k">BUY 조건</span><span class="v" style="font-size:11.5px;">기대수익률 ≥ CAGR</span></div>
+          <div class="kv-row"><span class="k">HOLD 조건</span><span class="v" style="font-size:11.5px;">Rf ≤ 수익률 &lt; CAGR</span></div>
+          <div class="kv-row"><span class="k">SELL 조건</span><span class="v" style="font-size:11.5px;">기대수익률 &lt; Rf</span></div>
+        </div>
+
+        <div class="sb-box">
+          <div class="sb-title"><span>Key Metrics (2025 결산)</span><span class="src-chip">S3·S7</span></div>
+          <div class="kv-row"><span class="k">주력 / 보조 모형</span><span class="v">PER / PBR</span></div>
+          <div class="kv-row"><span class="k">매출 성장률 (M4)</span><span class="v" style="color:var(--green);">+2.20%</span></div>
+          <div class="kv-row"><span class="k">영업이익률 (M5)</span><span class="v" style="color:var(--green);">5.23%</span></div>
+          <div class="kv-row"><span class="k">EPS (M7)</span><span class="v">29,161.38원</span></div>
+          <div class="kv-row"><span class="k">BPS (M8)</span><span class="v">485,192.53원</span></div>
+          <div class="kv-row"><span class="k">PER / PBR (M10·M11)</span><span class="v" style="color:var(--amber);">주가 없음</span></div>
+        </div>
+
+        <div class="sb-box">
+          <div class="sb-title"><span>B/S Data (2025-12-31)</span><span class="src-chip">S3</span></div>
+          <div class="kv-row"><span class="k">자산 총계</span><span class="v">38,221.2억 원</span></div>
+          <div class="kv-row"><span class="k">부채 총계 (M6 35.00%)</span><span class="v">9,909.4억 원</span></div>
+          <div class="kv-row"><span class="k">자본 총계</span><span class="v">28,311.9억 원</span></div>
+          <div class="kv-row"><span class="k">유통주식수(보통주)</span><span class="v">5,834,188주</span></div>
+        </div>
+
+        <div class="sb-box" style="background:var(--green-bg);border-color:var(--green-bd);text-align:center;">
+          <div style="font-weight:800;font-size:12.5px;color:var(--green);">숫자 대조 &amp; QA 검증 통과</div>
+          <div class="num" style="font-size:12px;color:#065f46;margin-top:3px;">전체 FIX 0건 · center PASS 12건 · QA 0건</div>
+          <button type="button" class="link-jump" style="margin-top:8px;background:#fff;" onclick="switchTab('p2')">2장 Key Charts 보기 →</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== 2장: Key Charts ===================== -->
+  <section id="sec-p2" class="page-section card hidden">
+    <div class="page-banner">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="page-label">2장 · Key Charts</span>
+        <strong style="font-size:15px;">2·3·4쪽 승격 핵심 차트 3종 (2023~2025 DART 실데이터 기반)</strong>
+      </div>
+      <span class="tag blue">엔진 요청 #8 (키차트 전용 칸 신설) 프로토타입</span>
+    </div>
+
+    <div style="display:grid;gap:18px;">
+      <!-- Key Chart 1 -->
+      <article class="chart-card">
+        <div class="sub-head" style="margin-bottom:0;">
+          <div>
+            <span class="tag blue">Key Chart 1 · 2쪽 산업분석 승격 (투자포인트 1 수요·해자 증명)</span>
+            <h3 style="margin:6px 0 2px;font-size:15px;">2023~2025 품목별 매출 추이 및 국내 시장점유율 기반 <span class="src-chip">S4, E2·E4</span></h3>
+            <p style="margin:0;font-size:12px;color:var(--muted);">주력 라면 매출은 2023년 26,797.8억 → 2024년 28,140.5억(+5.0%) → 2025년 29,909.8억 원(+6.3%, 전체 매출 비중 85.1%)으로 성장하며 과반 점유율(56.3%)을 유지합니다.</p>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="tag green">라면 M/S 56.3% [E4]</span>
+            <span class="tag">스낵 M/S 32.1% [E4]</span>
+            <span class="tag blue">라면 매출비중 85.1% [E2]</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="svg-chart1" viewBox="0 0 880 270"></svg>
+        </div>
+        <div id="hover-c1" class="hover-readout">
+          <span>연도별 막대 영역에 마우스를 올리면 라면·스낵·기타 품목 매출(억 원)과 연결 합계 세부 수치가 표시됩니다.</span>
+          <span class="num">출처: S4 (II. 사업의 내용)</span>
+        </div>
+      </article>
+
+      <!-- Key Chart 2 -->
+      <article class="chart-card">
+        <div class="sub-head" style="margin-bottom:0;">
+          <div>
+            <span class="tag blue">Key Chart 2 · 3쪽 기업·재무 승격 (투자포인트 1·2 실적 및 지역 증명)</span>
+            <h3 id="c2-heading" style="margin:6px 0 2px;font-size:15px;">연결 매출·영업이익 vs OPM(%) 독립 스케일 추이 <span class="src-chip">M1·M2·M4·M5</span></h3>
+            <p id="c2-sub" style="margin:0;font-size:12px;color:var(--muted);">2024년 수익성 둔화(OPM 4.74%) 이후 2025년 매출 성장률 2.20%(M4) 및 영업이익률 5.23%(M5)로 회복했으나, 2023년 고점(영업이익 2,120.6억 원, OPM 6.22%) 대비 수준은 함께 점검해야 합니다.</p>
+          </div>
+          <div class="seg-toggle" role="group" aria-label="차트 2 보기 전환">
+            <button type="button" id="btn-c2-fin" class="seg-btn active" onclick="setC2Mode('fin')">실적·OPM 2단 독립 스케일</button>
+            <button type="button" id="btn-c2-geo" class="seg-btn" onclick="setC2Mode('geo')">지역별 매출·손익 (24 vs 25)</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="svg-chart2" viewBox="0 0 880 330"></svg>
+        </div>
+        <div id="hover-c2" class="hover-readout">
+          <span>차트 포인트에 마우스를 올리면 연도/지역별 매출·영업이익(억 원)과 변화율이 표시됩니다.</span>
+          <span class="num">출처: S1·S2·S3 / S5 (영업부문 주석)</span>
+        </div>
+      </article>
+
+      <!-- Key Chart 3 -->
+      <article class="chart-card">
+        <div class="sub-head" style="margin-bottom:0;">
+          <div>
+            <span class="tag amber">Key Chart 3 · 4쪽 밸류에이션 승격 (실제 M7·M8 기반 주가·밴드 시뮬레이터)</span>
+            <h3 style="margin:6px 0 2px;font-size:15px;">2025 EPS·BPS 기준 PER/PBR 멀티플 스펙트럼 &amp; 동적 기회비용 시뮬레이터 <span class="src-chip">M7·M8</span></h3>
+            <p style="margin:0;font-size:12px;color:var(--muted);">현재 주가 API 연결 전이므로 실제 산출된 <strong>EPS <span class="num">29,161.38원</span>(M7)</strong>·<strong>BPS <span class="num">485,192.53원</span>(M8)</strong>에 가상 주가·목표 배수를 입력해 엔진 연결 후 산출 구조를 미리 확인합니다.</p>
+          </div>
+          <span class="tag amber">시뮬레이션 모드 (실제 주가: 확인 필요)</span>
+        </div>
+
+        <div class="sim-panel">
+          <div class="sim-controls">
+            <div class="sim-ctrl">
+              <label for="sim-price">가상 현재주가 <span id="lbl-price" class="num">342,000원</span></label>
+              <input id="sim-price" type="range" min="250000" max="550000" step="2000" value="342000" />
+            </div>
+            <div class="sim-ctrl">
+              <label for="sim-per">목표 PER 배수 <span id="lbl-per" class="num">13.8배</span></label>
+              <input id="sim-per" type="range" min="8.0" max="20.0" step="0.2" value="13.8" />
+            </div>
+            <div class="sim-ctrl">
+              <label for="sim-rf">적용 기준금리 (R<sub>f</sub>) <span id="lbl-rf" class="num">2.50%</span></label>
+              <input id="sim-rf" type="range" min="1.5" max="5.0" step="0.25" value="2.5" />
+            </div>
+            <div class="sim-ctrl">
+              <label for="sim-cagr">S&amp;P 500 10Y CAGR <span id="lbl-cagr" class="num">11.50%</span></label>
+              <input id="sim-cagr" type="range" min="7.0" max="15.0" step="0.5" value="11.5" />
+            </div>
+          </div>
+          <div class="sim-results">
+            <div class="sim-stat"><div class="sk">현재 내재 PER / PBR</div><div id="out-mult" class="sv">—</div></div>
+            <div class="sim-stat"><div class="sk">목표주가 (EPS × 목표 PER)</div><div id="out-target" class="sv">—</div></div>
+            <div class="sim-stat"><div class="sk">기대수익률 (%)</div><div id="out-upside" class="sv">—</div></div>
+            <div class="sim-stat"><div class="sk">가상 동적 밴드 판정</div><div id="out-rating" class="sv">—</div></div>
+          </div>
+          <div class="chart-wrap">
+            <svg id="svg-chart3" viewBox="0 0 880 180"></svg>
+          </div>
+        </div>
+
+        <div class="risk-alert">
+          <h4>반대신문(cross_exam) 핵심 모니터링 리스크 3건 (실행본 2341 실측 그대로)</h4>
+          <ul class="bullet-list" style="color:#78350f;">
+            <li><strong>[5쪽 C-1 반론]</strong> 미국 지역 외부매출은 2024년 <span class="num">5,331.3억 원</span> → 2025년 <span class="num">5,243.4억 원</span>, 부문영업이익은 <span class="num">473.3억 원</span> → <span class="num">269.8억 원</span>, 전체 품목 수출도 <span class="num">3,441.8억 원</span> → <span class="num">3,383.8억 원</span> <span class="src-chip">S5</span>으로 감소해 해외 거점 확장이 곧바로 수익성 증가로 이어지는지는 추가 검증이 필요합니다.</li>
+            <li><strong>[5쪽 C-2 반론]</strong> 2025년 연결 영업이익(<span class="num">1,839.3억 원</span>) 및 당기순이익(<span class="num">1,700.5억 원</span>)이 2024년 대비 회복되었으나, 2023년 고점(영업이익 <span class="num">2,120.6억 원</span>·순이익 <span class="num">1,714.7억 원</span> <span class="src-chip">S1</span>) 대비 여전히 낮습니다.</li>
+            <li><strong>[3쪽 본문 반론]</strong> 라면 수출액(<span class="num">2,467.4억 → 2,280.1억 원</span>) 감소 및 캐나다 부문 영업손익 적자 전환(<span class="num">+29.9억 → -11.1억 원</span> <span class="src-chip">S5</span>) 등 지역별 온도 차를 함께 모니터링해야 합니다.</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===================== 3장: 투자포인트와 검증 ===================== -->
+  <section id="sec-p3" class="page-section card hidden">
+    <div class="page-banner">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="page-label">3장 · 투자포인트와 검증</span>
+        <strong style="font-size:15px;">결론과 투자 포인트 (가변 1~3개 채택 · 미사용 3번 슬롯 제거 시안)</strong>
+      </div>
+      <span class="tag green">채택 2개 / 최대 3개 · 비재무 우선</span>
+    </div>
+
+    <div style="display:grid;gap:16px;">
+      <!-- Point 1 -->
+      <article class="tp-full-card">
+        <div class="tp-full-head">
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <span class="tp-num">1</span>
+            <h3 class="tp-thesis">국내 과반의 시장 지배력과 해외 주요 거점 확장을 통한 글로벌 외형 성장이 핵심 주가 상승 촉매다.</h3>
+          </div>
+          <span class="tag blue">Key Chart 1·2 연동</span>
+        </div>
+        <ul class="bullet-list">
+          <li>농심은 2025년 기준 국내 라면 시장점유율 <strong class="num">56.3%</strong> <span class="src-chip">S4, E4</span> 및 스낵 시장점유율 <strong class="num">32.1%</strong> <span class="src-chip">S4, E4</span>의 확고한 지위를 유지하며, 라면 부문이 전체 매출의 <strong class="num">85.1%</strong> <span class="src-chip">S4, E2</span>를 차지하는 견고한 사업 구조를 갖추고 있다.</li>
+          <li><code>NONGSHIM AMERICA, INC.</code> 매출액 <strong class="num">5,791.5억 원</strong>(<span class="num">579,152,021천원</span>) <span class="src-chip">S4, E1</span> 등 글로벌 현지 법인을 중심으로 해외 시장을 확대하며 중장기 성장 동력을 확보하고 있다 <span class="src-chip">S5</span>.</li>
+        </ul>
+        <div class="tp-risk-box">
+          <strong>하방 리스크 · 모니터링 조건:</strong> 국내 시장의 양적 정체 속에 해외 현지 법인의 외형 확장이 둔화되거나 유통 채널 경쟁이 심화될 경우 성장 탄력이 제한될 수 있다 <span class="src-chip">S4, E1</span>. *(반대신문 병기: 2025년 미국 지역 외부매출 및 부문이익 소폭 하락 추이 점검 필요)*
+        </div>
+        <div class="tp-foot">
+          <div>연결 파트: <span class="tag">2쪽 산업 분석</span> <span class="tag">3쪽 기업·재무 분석</span></div>
+          <div class="num">숫자 대조: 발췌 일치 E4·E2·E1 (FIX 0건)</div>
+        </div>
+      </article>
+
+      <!-- Point 2 -->
+      <article class="tp-full-card">
+        <div class="tp-full-head">
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <span class="tp-num">2</span>
+            <h3 class="tp-thesis">외형 성장률 회복과 마진율 개선에 따른 이익 창출력 확대가 밸류에이션 기반을 강화한다.</h3>
+          </div>
+          <span class="tag blue">Key Chart 2·3 연동</span>
+        </div>
+        <ul class="bullet-list">
+          <li>매출 성장률이 2024년 <strong class="num">0.83%</strong> <span class="src-chip">M1</span>에서 2025년 <strong class="num">2.20%</strong> <span class="src-chip">M4</span>로 확대되고, 영업이익률 또한 2024년 <strong class="num">4.74%</strong> <span class="src-chip">M2</span>에서 2025년 <strong class="num">5.23%</strong> <span class="src-chip">M5</span>로 개선되었다.</li>
+          <li>2025년 기준 EPS <strong class="num">29,161.38원</strong> <span class="src-chip">M7</span> <span class="src-chip">S3, S7</span> 및 BPS <strong class="num">485,192.53원</strong> <span class="src-chip">M8</span> <span class="src-chip">S3, S7</span>을 기록하며 기초 이익 및 자산 체력을 확보했으나, 현재 주가 미제공으로 밸류에이션 배수 산출 및 투자의견은 <strong>확인 필요</strong> 상태다 <span class="src-chip">M9, M10, M11</span> <span class="src-chip">S3, S7</span>.</li>
+        </ul>
+        <div class="tp-risk-box">
+          <strong>하방 리스크 · 모니터링 조건:</strong> 수입 소맥 <strong class="num">196 USD/MT</strong> <span class="src-chip">S4, E3</span> 및 수입 팜유 <strong class="num">1,043 USD/MT</strong> <span class="src-chip">S4, E3</span> 등 주요 원재료 투입 가격의 변동성 확대로 원가 부담이 가중될 경우 영업이익률 개선 흐름이 제약될 수 있다.
+        </div>
+        <div class="tp-foot">
+          <div>연결 파트: <span class="tag">3쪽 기업·재무 분석</span> <span class="tag">4쪽 밸류에이션</span></div>
+          <div class="num">숫자 대조: M1·M2·M4·M5·M7·M8 전원 PASS + 원재료 E3 발췌 일치</div>
+        </div>
+      </article>
+
+      <div class="omitted-note">
+        <strong>가변 슬롯 렌더링 개선 포인트(엔진 요청 #7):</strong> 명확한 주가 상승 촉매가 2개만 선별되어 <strong>3번 투자포인트 카드는 화면에서 완전히 숨김 처리</strong>했습니다. 기존 <code>template.html</code>처럼 빈 3번 카드와 하단 경고성 문구를 띄우지 않고, 1~2개 핵심 논리만 깔끔하게 제시합니다.
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;">
+        <h3 style="margin:0 0 10px;font-size:15px;">검증 기록지 요약 (`004370_2025_1121_2341` 실측)</h3>
+        <div class="verify-grid">
+          <div class="v-tile good"><div class="vk">숫자 불일치 반려 (FIX)</div><div class="vv">0건</div></div>
+          <div class="v-tile blue"><div class="vk">전체 숫자 통과 (PASS)</div><div class="vv">39건</div></div>
+          <div class="v-tile blue"><div class="vk">센터장 PASS (Before 4건)</div><div class="vv">12건</div></div>
+          <div class="v-tile good"><div class="vk">원문 발췌 일치 / 미일치</div><div class="vv">17 / 0건</div></div>
+          <div class="v-tile good"><div class="vk">QA 품질점검 (center)</div><div class="vv">0건 지적</div></div>
+        </div>
+        <p class="footnote">출처 요약: [S1~S3] DART 재무제표 API (2023~2025) · [S4] II. 사업의 내용 (E1~E4) · [S5] 연결재무제표 주석 영업부문 · [S6] DART 기업개황 API · [S7] DART 주식총수 현황 API</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  const sections = {
+    p1: document.getElementById("sec-p1"),
+    p2: document.getElementById("sec-p2"),
+    p3: document.getElementById("sec-p3")
+  };
+  const buttons = document.querySelectorAll(".tab-btn");
+
+  window.switchTab = function (key) {
+    buttons.forEach((b) => b.classList.toggle("active", b.dataset.tab === key));
+    if (key === "all") {
+      Object.values(sections).forEach((el) => el.classList.remove("hidden"));
+    } else {
+      Object.entries(sections).forEach(([k, el]) => el.classList.toggle("hidden", k !== key));
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  buttons.forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+
+  /* ===== Key Chart 1: 2023~2025 품목별 매출 (억 원, S4) ===== */
+  const c1Data = [
+    { year: "2023", ramen: 26797.8, snack: 5050.3, other: 6020.1, total: 34105.6, msRamen: "56.0%", msSnack: "32.7%" },
+    { year: "2024", ramen: 28140.5, snack: 4928.0, other: 6310.5, total: 34387.3, msRamen: "56.3%", msSnack: "32.5%" },
+    { year: "2025", ramen: 29909.8, snack: 4874.7, other: 6036.5, total: 35143.2, msRamen: "56.3%", msSnack: "32.1%" }
+  ];
+  function drawChart1() {
+    const svg = document.getElementById("svg-chart1");
+    const hover = document.getElementById("hover-c1");
+    const maxV = 38000;
+    const baseY = 225, chartH = 175;
+    let out = "";
+    [0, 10000, 20000, 30000].forEach((v) => {
+      const y = baseY - (v / maxV) * chartH;
+      out += `<line x1="80" y1="${y}" x2="840" y2="${y}" stroke="#e2e8f0" stroke-dasharray="4 4"/>`;
+      out += `<text x="72" y="${y + 4}" text-anchor="end" font-size="11" fill="#64748b" font-family="monospace">${v.toLocaleString()}억</text>`;
+    });
+    const series = [
+      { key: "ramen", label: "라면", color: "#1d4ed8" },
+      { key: "snack", label: "스낵", color: "#0f766e" },
+      { key: "other", label: "기타", color: "#94a3b8" }
+    ];
+    c1Data.forEach((d, idx) => {
+      const gx = 155 + idx * 235;
+      out += `<rect class="c1-hit" data-i="${idx}" x="${gx - 20}" y="25" width="180" height="225" fill="transparent" style="cursor:pointer"/>`;
+      series.forEach((s, si) => {
+        const val = d[s.key];
+        const h = (val / maxV) * chartH;
+        const x = gx + si * 46;
+        const y = baseY - h;
+        out += `<rect x="${x}" y="${y}" width="36" height="${h}" rx="4" fill="${s.color}" opacity="0.92" pointer-events="none"/>`;
+        out += `<text x="${x + 18}" y="${y - 6}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${s.color}" font-family="monospace">${(val / 1000).toFixed(1)}천</text>`;
+      });
+      out += `<text x="${gx + 64}" y="246" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0f172a">${d.year}년</text>`;
+    });
+    // Legend
+    series.forEach((s, i) => {
+      const lx = 580 + i * 85;
+      out += `<rect x="${lx}" y="12" width="12" height="12" rx="3" fill="${s.color}"/>`;
+      out += `<text x="${lx + 17}" y="22" font-size="11.5" font-weight="600" fill="#334155">${s.label}</text>`;
+    });
+    svg.innerHTML = out;
+    svg.querySelectorAll(".c1-hit").forEach((el) => {
+      el.addEventListener("mouseenter", () => {
+        const d = c1Data[Number(el.dataset.i)];
+        hover.innerHTML = `<span><strong>${d.year}년 품목 매출(매출에누리 차감 전):</strong> 라면 <strong class="num">${d.ramen.toLocaleString()}억 원</strong> · 스낵 <strong class="num">${d.snack.toLocaleString()}억 원</strong> · 기타 <strong class="num">${d.other.toLocaleString()}억 원</strong> (연결 순매출 합계 <strong class="num">${d.total.toLocaleString()}억 원</strong>)</span><span class="num">국내 점유율: 라면 ${d.msRamen} / 스낵 ${d.msSnack} [E4]</span>`;
+      });
+    });
+  }
+
+  /* ===== Key Chart 2: 2단 독립 스케일 vs 지역별 비교 ===== */
+  let c2Mode = "fin";
+  const c2Fin = [
+    { year: "2023", rev: 34105.6, op: 2120.6, opm: 6.22, tag: "S1 참고" },
+    { year: "2024", rev: 34387.3, op: 1630.7, opm: 4.74, tag: "M2" },
+    { year: "2025", rev: 35143.2, op: 1839.3, opm: 5.23, tag: "M4·M5" }
+  ];
+  const c2Geo = [
+    { name: "한국", r24: 24792.4, r25: 24541.5, o24: 814.0, o25: 1323.8 },
+    { name: "미국", r24: 5331.3, r25: 5243.4, o24: 473.3, o25: 269.8 },
+    { name: "중국", r24: 1605.2, r25: 1727.4, o24: 150.5, o25: 119.8 },
+    { name: "일본", r24: 1063.9, r25: 1349.8, o24: 52.3, o25: 60.0 },
+    { name: "캐나다", r24: 900.7, r25: 876.3, o24: 29.9, o25: -11.1 },
+    { name: "호주", r24: 560.2, r25: 633.0, o24: 14.8, o25: 17.9 },
+    { name: "유럽", r24: 0.0, r25: 612.9, o24: 0.0, o25: 4.8 }
+  ];
+
+  window.setC2Mode = function (mode) {
+    c2Mode = mode;
+    document.getElementById("btn-c2-fin").classList.toggle("active", mode === "fin");
+    document.getElementById("btn-c2-geo").classList.toggle("active", mode === "geo");
+    drawChart2();
+  };
+
+  function drawChart2() {
+    const svg = document.getElementById("svg-chart2");
+    const hover = document.getElementById("hover-c2");
+    const heading = document.getElementById("c2-heading");
+    const sub = document.getElementById("c2-sub");
+    let out = "";
+    if (c2Mode === "fin") {
+      heading.innerHTML = '연결 매출·영업이익 vs OPM(%) 독립 스케일 추이 <span class="src-chip">M1·M2·M4·M5</span>';
+      sub.textContent = "매출·영업이익(상단)과 영업이익률 OPM(하단)의 축 스케일을 분리해 수익성 개선 폭과 2023년 고점 대비 수준을 왜곡 없이 보여줍니다.";
+      // Top panel: Revenue (left axis) & Operating Profit (right bars)
+      out += `<text x="80" y="20" font-size="11.5" font-weight="700" fill="#0f2744">[상단] 연결 매출액 &amp; 영업이익 (억 원 · 독립 막대)</text>`;
+      [0, 18000, 36000].forEach((v) => {
+        const y = 165 - (v / 38000) * 125;
+        out += `<line x1="80" y1="${y}" x2="840" y2="${y}" stroke="#e2e8f0" stroke-dasharray="4 4"/>`;
+        out += `<text x="72" y="${y + 4}" text-anchor="end" font-size="10.5" fill="#64748b" font-family="monospace">${v.toLocaleString()}</text>`;
+      });
+      c2Fin.forEach((d, i) => {
+        const gx = 185 + i * 225;
+        const hRev = (d.rev / 38000) * 125;
+        const hOp = (d.op / 2500) * 105; // separate visual scale on right bar
+        out += `<rect class="c2f-hit" data-i="${i}" x="${gx - 20}" y="25" width="160" height="295" fill="transparent" style="cursor:pointer"/>`;
+        out += `<rect x="${gx}" y="${165 - hRev}" width="44" height="${hRev}" rx="4" fill="#1d4ed8" opacity="0.9"/>`;
+        out += `<text x="${gx + 22}" y="${165 - hRev - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="#1d4ed8" font-family="monospace">${d.rev.toLocaleString()}</text>`;
+        out += `<rect x="${gx + 54}" y="${165 - hOp}" width="44" height="${hOp}" rx="4" fill="#c8102e" opacity="0.9"/>`;
+        out += `<text x="${gx + 76}" y="${165 - hOp - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="#c8102e" font-family="monospace">${d.op.toLocaleString()}</text>`;
+      });
+      // Legend top
+      out += `<rect x="640" y="10" width="11" height="11" rx="2" fill="#1d4ed8"/><text x="656" y="19" font-size="11" fill="#334155">매출액(좌)</text>`;
+      out += `<rect x="730" y="10" width="11" height="11" rx="2" fill="#c8102e"/><text x="746" y="19" font-size="11" fill="#334155">영업이익(우·자체축)</text>`;
+
+      // Bottom panel: OPM (%)
+      out += `<line x1="60" y1="188" x2="840" y2="188" stroke="#cbd5e1"/>`;
+      out += `<text x="80" y="208" font-size="11.5" font-weight="700" fill="#0f2744">[하단] 영업이익률 OPM (% · 독립 스케일 4%~7%)</text>`;
+      [4.0, 5.5, 7.0].forEach((v) => {
+        const y = 300 - ((v - 3.5) / 3.5) * 80;
+        out += `<line x1="80" y1="${y}" x2="840" y2="${y}" stroke="#f1f5f9"/>`;
+        out += `<text x="72" y="${y + 4}" text-anchor="end" font-size="10.5" fill="#64748b" font-family="monospace">${v.toFixed(1)}%</text>`;
+      });
+      const pts = c2Fin.map((d, i) => [234 + i * 225, 300 - ((d.opm - 3.5) / 3.5) * 80]);
+      out += `<polyline fill="none" stroke="#c8102e" stroke-width="3" points="${pts.map((p) => p.join(",")).join(" ")}"/>`;
+      pts.forEach(([px, py], i) => {
+        const d = c2Fin[i];
+        out += `<circle cx="${px}" cy="${py}" r="5.5" fill="#fff" stroke="#c8102e" stroke-width="3"/>`;
+        out += `<text x="${px}" y="${py - 11}" text-anchor="middle" font-size="11.5" font-weight="800" fill="#c8102e" font-family="monospace">${d.opm.toFixed(2)}%</text>`;
+        out += `<text x="${px}" y="322" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">${d.year}년 (${d.tag})</text>`;
+      });
+      svg.innerHTML = out;
+      svg.querySelectorAll(".c2f-hit").forEach((el) => {
+        el.addEventListener("mouseenter", () => {
+          const d = c2Fin[Number(el.dataset.i)];
+          hover.innerHTML = `<span><strong>${d.year}년 연결 실적:</strong> 매출액 <strong class="num">${d.rev.toLocaleString()}억 원</strong> · 영업이익 <strong class="num">${d.op.toLocaleString()}억 원</strong> · OPM <strong class="num">${d.opm.toFixed(2)}%</strong></span><span class="num">${d.tag}</span>`;
+        });
+      });
+    } else {
+      heading.innerHTML = '지역별 외부매출 &amp; 부문영업손익 비교 (2024 vs 2025 · 억 원) <span class="src-chip">S5</span>';
+      sub.textContent = "한국 부문 손익 개선(814.0→1,323.8억) 및 유럽 신규 매출(612.9억)과 달리, 미국(매출 5,331.3→5,243.4억 · 손익 473.3→269.8억)과 캐나다 적자 전환(-11.1억)의 명암을 투명하게 보여줍니다.";
+      out += `<text x="80" y="20" font-size="11.5" font-weight="700" fill="#0f2744">지역별 부문영업손익 변화 (2024 회색 vs 2025 파랑/적색 · 억 원)</text>`;
+      const maxOp = 1400, zeroY = 235, scaleH = 180;
+      [0, 500, 1000, 1400].forEach((v) => {
+        const y = zeroY - (v / maxOp) * scaleH;
+        out += `<line x1="80" y1="${y}" x2="840" y2="${y}" stroke="${v === 0 ? "#94a3b8" : "#e2e8f0"}" stroke-dasharray="${v === 0 ? "" : "4 4"}"/>`;
+        out += `<text x="72" y="${y + 4}" text-anchor="end" font-size="10.5" fill="#64748b" font-family="monospace">${v.toLocaleString()}</text>`;
+      });
+      c2Geo.forEach((g, i) => {
+        const gx = 115 + i * 102;
+        out += `<rect class="c2g-hit" data-i="${i}" x="${gx - 10}" y="30" width="84" height="275" fill="transparent" style="cursor:pointer"/>`;
+        const h24 = (Math.abs(g.o24) / maxOp) * scaleH;
+        const h25 = (Math.abs(g.o25) / maxOp) * scaleH;
+        out += `<rect x="${gx}" y="${g.o24 >= 0 ? zeroY - h24 : zeroY}" width="26" height="${Math.max(h24, 2)}" rx="3" fill="#94a3b8"/>`;
+        const c25 = g.o25 < 0 ? "#c8102e" : "#1d4ed8";
+        out += `<rect x="${gx + 30}" y="${g.o25 >= 0 ? zeroY - h25 : zeroY}" width="26" height="${Math.max(h25, 3)}" rx="3" fill="${c25}"/>`;
+        out += `<text x="${gx + 43}" y="${g.o25 >= 0 ? zeroY - h25 - 6 : zeroY + h25 + 13}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${c25}" font-family="monospace">${g.o25.toLocaleString()}</text>`;
+        out += `<text x="${gx + 28}" y="275" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">${g.name}</text>`;
+        out += `<text x="${gx + 28}" y="294" text-anchor="middle" font-size="10" fill="#64748b" font-family="monospace">매출 ${g.r25.toLocaleString()}</text>`;
+      });
+      out += `<rect x="650" y="10" width="11" height="11" rx="2" fill="#94a3b8"/><text x="666" y="19" font-size="11" fill="#334155">2024 손익</text>`;
+      out += `<rect x="735" y="10" width="11" height="11" rx="2" fill="#1d4ed8"/><text x="751" y="19" font-size="11" fill="#334155">2025 손익</text>`;
+      svg.innerHTML = out;
+      svg.querySelectorAll(".c2g-hit").forEach((el) => {
+        el.addEventListener("mouseenter", () => {
+          const g = c2Geo[Number(el.dataset.i)];
+          hover.innerHTML = `<span><strong>${g.name} 지역:</strong> 외부매출 <span class="num">${g.r24.toLocaleString()}억 → ${g.r25.toLocaleString()}억 원</span> · 부문영업손익 <span class="num">${g.o24.toLocaleString()}억 → ${g.o25.toLocaleString()}억 원</span></span><span class="num">출처: S5 (영업부문 주석)</span>`;
+        });
+      });
+    }
+  }
+
+  /* ===== Key Chart 3: EPS/BPS 기반 동적 밸류에이션 시뮬레이터 ===== */
+  const EPS = 29161.38;
+  const BPS = 485192.53;
+  function updateSim() {
+    const price = Number(document.getElementById("sim-price").value);
+    const targetPer = Number(document.getElementById("sim-per").value);
+    const rf = Number(document.getElementById("sim-rf").value);
+    const cagr = Number(document.getElementById("sim-cagr").value);
+
+    document.getElementById("lbl-price").textContent = price.toLocaleString() + "원";
+    document.getElementById("lbl-per").textContent = targetPer.toFixed(1) + "배";
+    document.getElementById("lbl-rf").textContent = rf.toFixed(2) + "%";
+    document.getElementById("lbl-cagr").textContent = cagr.toFixed(2) + "%";
+
+    const curPer = price / EPS;
+    const curPbr = price / BPS;
+    const targetPrice = Math.round(EPS * targetPer);
+    const upside = ((targetPrice - price) / price) * 100;
+
+    document.getElementById("out-mult").textContent = `${curPer.toFixed(2)}배 / ${curPbr.toFixed(2)}배`;
+    document.getElementById("out-target").textContent = `${targetPrice.toLocaleString()}원`;
+    const upEl = document.getElementById("out-upside");
+    upEl.textContent = `${upside >= 0 ? "+" : ""}${upside.toFixed(2)}%`;
+    upEl.style.color = upside >= cagr ? "#047857" : upside >= rf ? "#b45309" : "#c8102e";
+
+    const rtEl = document.getElementById("out-rating");
+    if (upside >= cagr) { rtEl.textContent = "BUY (CAGR 상회)"; rtEl.style.color = "#047857"; }
+    else if (upside >= rf) { rtEl.textContent = "HOLD (Rf~CAGR)"; rtEl.style.color = "#b45309"; }
+    else { rtEl.textContent = "SELL (기회비용 하회)"; rtEl.style.color = "#c8102e"; }
+
+    // Draw horizontal PER sensitivity spectrum (8x ~ 20x)
+    const svg = document.getElementById("svg-chart3");
+    const multiples = [8, 10, 12, 13.8, 16, 18, 20];
+    const minP = EPS * 8, maxP = EPS * 20;
+    const xOf = (val) => 70 + ((val - minP) / (maxP - minP)) * 740;
+    let out = `<line x1="70" y1="88" x2="810" y2="88" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>`;
+    // Rf~CAGR HOLD band highlight
+    const holdLow = price * (1 + rf / 100);
+    const holdHigh = price * (1 + cagr / 100);
+    const x1 = Math.max(70, Math.min(810, xOf(holdLow)));
+    const x2 = Math.max(70, Math.min(810, xOf(holdHigh)));
+    if (x2 > x1) {
+      out += `<rect x="${x1}" y="79" width="${x2 - x1}" height="18" rx="4" fill="#fde68a" opacity="0.85"/>`;
+      out += `<text x="${(x1 + x2) / 2}" y="72" text-anchor="middle" font-size="10.5" font-weight="700" fill="#b45309">HOLD 구간 (Rf~CAGR)</text>`;
+    }
+    multiples.forEach((m) => {
+      const pVal = EPS * m;
+      const px = xOf(pVal);
+      out += `<line x1="${px}" y1="82" x2="${px}" y2="96" stroke="#64748b" stroke-width="1.5"/>`;
+      out += `<text x="${px}" y="114" text-anchor="middle" font-size="11" font-weight="700" fill="#334155" font-family="monospace">${m}배</text>`;
+      out += `<text x="${px}" y="130" text-anchor="middle" font-size="10" fill="#64748b" font-family="monospace">${Math.round(pVal / 1000).toLocaleString()}천원</text>`;
+    });
+    // Current price marker
+    const curX = Math.max(70, Math.min(810, xOf(price)));
+    out += `<circle cx="${curX}" cy="88" r="7" fill="#0f2744" stroke="#fff" stroke-width="2"/>`;
+    out += `<text x="${curX}" y="156" text-anchor="middle" font-size="11" font-weight="800" fill="#0f2744">가상 현재가 ${price.toLocaleString()}원 (${curPer.toFixed(1)}x)</text>`;
+    // Target price marker
+    const tgtX = Math.max(70, Math.min(810, xOf(targetPrice)));
+    out += `<circle cx="${tgtX}" cy="88" r="7" fill="#047857" stroke="#fff" stroke-width="2"/>`;
+    out += `<text x="${tgtX}" y="46" text-anchor="middle" font-size="11.5" font-weight="800" fill="#047857">목표가 ${targetPrice.toLocaleString()}원 (${targetPer.toFixed(1)}x)</text>`;
+    svg.innerHTML = out;
+  }
+
+  ["sim-price", "sim-per", "sim-rf", "sim-cagr"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", updateSim);
+  });
+
+  drawChart1();
+  drawChart2();
+  updateSim();
+})();
+</script>
+</body>
+</html>
