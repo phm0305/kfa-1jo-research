@@ -44,3 +44,14 @@
 
 - **Before 검증 기록:** [runs/004370_2025_1121_1839/verification.md](runs/004370_2025_1121_1839/verification.md)
 - **After 최종 리포트 · 웹 화면 · 검증 기록:** [report.md](runs/004370_2025_1121_2341/report.md) · [report.html](runs/004370_2025_1121_2341/report.html) · [verification.md](runs/004370_2025_1121_2341/verification.md)
+
+## 4. 추가 반영 (`v2.5` 지시서 · UI 시안 · 엔진 요청서 7~9번)
+
+- **`v2.5` 지시서 추가 고도화 (`prompts/center.md`):**
+  - 동적 기회비용 비교 밴드 공식 명문화 및 천단위 콤마 + `억 원` 표기 통일
+  - 시계열 과장 방지·시점 분리 원칙 강화 및 `키차트` 연동 준비 지침 반영
+- **엔진 개선 요청서 #7~#9 (`engine_request.md`):**
+  - #7: `2컬럼` 리포트 프리뷰 레이아웃, 도입 요약 전체(`summary_text[1:]`) 노출, 미사용 `C-3` 카드 숨김 처리
+  - #8: `Key Charts` 전용 페이지 및 차트 슬롯(`K-1~K-3`) 신설 요청
+  - #9: 다중 시점 메타데이터 표기 및 반대신문(`cross_exam`) 리스크 박스 시각화 요청
+- **UI 프로토타입 프리뷰:** [preview_report.html](preview_report.html) (`1장 리포트 프리뷰` · `2장 Key Charts` · `3장 투자포인트와 검증`)
