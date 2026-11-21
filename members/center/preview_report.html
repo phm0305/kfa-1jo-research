@@ -450,7 +450,7 @@
         <span class="page-label">1장 · 리포트 프리뷰</span>
         <strong style="font-size:15px;">한눈에 보는 투자 요약 (2컬럼 증권사 리포트 레이아웃)</strong>
       </div>
-      <span class="tag green">도입 요약 4줄 정상 노출 · 미사용 3번 슬롯 숨김 적용</span>
+      <span class="tag green">도입 요약 4줄 정상 노출 · 상한 4개 중 미사용 3·4번 슬롯 숨김 적용</span>
     </div>
 
     <div class="meta-bar">
@@ -486,7 +486,7 @@
 
         <div class="sub-panel soft">
           <div class="sub-head">
-            <h3>핵심 투자포인트 프리뷰 <span style="font-weight:500;color:var(--soft);font-size:12px;">(가변 2개 채택 · 미사용 3번 칸 미출력)</span></h3>
+            <h3>핵심 투자포인트 프리뷰 <span style="font-weight:500;color:var(--soft);font-size:12px;">(가변 2개 채택 · 상한 4개 · 미사용 3·4번 칸 미출력)</span></h3>
             <button type="button" class="link-jump" onclick="switchTab('p3')">3장 상세 보기 →</button>
           </div>
           <div style="display:grid;gap:10px;">
@@ -723,9 +723,9 @@
     <div class="page-banner">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span class="page-label">3장 · 투자포인트와 검증</span>
-        <strong style="font-size:15px;">결론과 투자 포인트 (가변 1~3개 채택 · 미사용 3번 슬롯 제거 시안)</strong>
+        <strong style="font-size:15px;">결론과 투자 포인트 (가변 1~4개 채택 · 70점 컷오프 · 미사용 3·4번 슬롯 제거 시안)</strong>
       </div>
-      <span class="tag green">채택 2개 / 최대 3개 · 비재무 우선</span>
+      <span class="tag green">채택 2개 / 상한 4개 · 70점 컷오프 · 비재무 우선</span>
     </div>
 
     <div style="display:grid;gap:16px;">
@@ -774,7 +774,7 @@
       </article>
 
       <div class="omitted-note">
-        <strong>가변 슬롯 렌더링 개선 포인트(엔진 요청 #7):</strong> 명확한 주가 상승 촉매가 2개만 선별되어 <strong>3번 투자포인트 카드는 화면에서 완전히 숨김 처리</strong>했습니다. 기존 <code>template.html</code>처럼 빈 3번 카드와 하단 경고성 문구를 띄우지 않고, 1~2개 핵심 논리만 깔끔하게 제시합니다.
+        <strong>가변 슬롯 렌더링 개선 포인트(엔진 요청 #7):</strong> 상한 4개(<code>C-1~C-4</code>) 중 70점 컷오프를 통과한 주가 상승 촉매가 2개만 선별되어 <strong>미사용 3·4번 투자포인트 카드는 화면에서 완전히 숨김 처리</strong>했습니다. 기존 <code>template.html</code>처럼 빈 카드와 하단 경고성 문구를 띄우지 않고, 컷오프 통과 논리만 깔끔하게 제시합니다.
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:16px;">
