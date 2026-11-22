@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 import collect as c
 import dummy as d
@@ -148,3 +149,14 @@ def test_the_example_file_and_a_copy_without_bom_load_the_same(tmp_path):
     with_bom, without_bom = d.load(example, "004370"), d.load(plain, "004370")
     assert list(with_bom.columns) == c.COLUMNS and with_bom.drop(columns="출처 URL").equals(without_bom.drop(columns="출처 URL"))
     assert with_bom["값"].iloc[0] == 342000
+
+
+def test_a_file_saved_as_plain_excel_csv_in_cp949_loads_and_unreadable_bytes_stop_with_a_hint(tmp_path):
+    example = Path(__file__).resolve().parent.parent / "members" / "valuation" / "dummy_data.example.csv"
+    cp949 = tmp_path / "dummy_data.csv"
+    cp949.write_bytes(example.read_text(encoding="utf-8-sig").encode("cp949"))
+    assert d.load(cp949, "004370").drop(columns="출처 URL").equals(d.load(example, "004370").drop(columns="출처 URL"))
+    broken = tmp_path / "broken.csv"
+    broken.write_bytes(b"\xff\xfe\xff\n")
+    with pytest.raises(c.CollectError, match="CSV UTF-8"):
+        d.load(broken, "004370")

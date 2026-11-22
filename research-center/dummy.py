@@ -30,7 +30,15 @@ CITE = re.compile(r"\[[^\]\n]*\]|\((?:\s*M\d+\s*,?)+\)")
 
 def load(path, stock_code):
     """The member's file as shared-table rows; the four source columns are always set here, whatever it says."""
-    rows = pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    # Excel's plain "CSV" saves Korean as cp949; "CSV UTF-8" saves UTF-8 with a BOM.
+    for encoding in ("utf-8-sig", "cp949"):
+        try:
+            rows = pd.read_csv(path, dtype=str, keep_default_na=False, encoding=encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        raise CollectError(f"{path}: 글자를 읽지 못했어요. 엑셀에서 저장할 때 'CSV UTF-8'을 골라 주세요")
     if list(rows.columns) != COLUMNS:
         raise CollectError(f"{path}: 칸 이름과 순서는 공통 15칸과 같아야 해요. 지금: {list(rows.columns)}. "
                            "members/valuation/dummy_data.example.csv 머리줄을 그대로 쓰세요")
