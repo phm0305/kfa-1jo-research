@@ -77,3 +77,12 @@ FIX 변화는 **미집계 → 미집계**다. 양쪽 최종 report.html과 verif
 
 - 로컬 파일 — [공통본 검증 기록](runs/004370_2025_recovery_baseline/verification.md) · [입력 묶음](runs/004370_2025_recovery_baseline/bundle.txt) · [요청 기록](runs/004370_2025_recovery_baseline/http_requests.jsonl) · [재개 스크립트](runs/004370_2025_recovery_baseline/recover.py)
 - 재개 시 요청 기록을 유지한다. 추가 호출 승인을 받은 뒤 레포 루트에서 `py -B -u members/company/runs/004370_2025_recovery_baseline/recover.py`를 실행한다. 첫 요청 503은 이미 사용한 요청 한 건으로 남아 있으며, 스크립트는 누적 20회 상한을 적용한다. 기존 실행 폴더의 결과를 덮어쓰지 않는다.
+
+## 모델 연결 진단 추가 기록
+
+- 실행 중인 Python 테스트 프로세스는 확인되지 않았다. 종료할 프로세스가 없어 추가 API 요청도 보내지 않았다.
+- 저장된 503 기록은 JSON 목록 구조의 항목 안 `오류` 배열에 있었다. 원문은 기본 모델 `UNAVAILABLE`과 높은 요청량 응답, 일부 503의 서버 사용량 오류다. 기존 기록에는 504 `DEADLINE_EXCEEDED`와 429 재시도도 있다.
+- 저장소의 실행 경로(`engine`, `research-center`)를 등록한 뒤 `collect.get_key("GEMINI_API_KEY")`로 키 로딩 여부만 확인했다. 키 값은 출력하지 않았다.
+- 현재 키의 모델 목록 조회가 성공했다. `gemini-3.8-flash`와 `gemini-3.5-flash-lite`를 포함한 텍스트 생성 모델이 `generateContent`를 지원한다고 응답했다.
+- `gemini-3.8-flash` 짧은 생성 요청 1회는 응답을 반환하지 않고 대기했다. 성공 모델은 확인되지 않았다. 대체 모델 테스트는 요청하지 않았다. 테스트 프로세스가 남아 있지 않음을 확인했다.
+- 남은 절차는 다음 승인된 진단에서 설정 모델을 한 번, 실패한 경우에만 목록에 있는 대체 텍스트 모델을 한 번 테스트하는 것이다. 클라이언트 자동 재시도를 끄고 요청 제한 시간을 설정해 실제 응답 모델과 오류 코드를 기록한다. 성공 모델 확인 전에는 공통본·수정본 생성과 검증을 시작하지 않는다.
