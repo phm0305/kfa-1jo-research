@@ -38,8 +38,9 @@ def main():
     prompts_dirs = [Path("members", m, "prompts") for m in args.borrowed] + [Path("members", args.member, "prompts"), Path("prompts")]
     runs = Path("members", args.member, "runs")
     run_dir = new_run_dir(runs, args.stock, args.year, datetime.now(KST))
+    dummy_csv = Path("members", args.member, "dummy_data.csv")
     result = run(args.stock, args.year, prompts_dirs, run_dir, get_key("GEMINI_API_KEY"), get_key("DART_API_KEY"),
-                 quota_dirs=[runs])
+                 quota_dirs=[runs], dummy_data=(args.member, dummy_csv) if dummy_csv.exists() else None)
     for step, mark, memo in result.status:
         print(mark, step, memo)
     print(f"결과 폴더: {run_dir.as_posix()}")

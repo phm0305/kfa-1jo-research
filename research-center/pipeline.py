@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+import dummy
 from collect import KST, QUARTER_END, REVIEW, CollectError, SkipStep, collect_dart, is_blank, now_kst
 from dart_doc import COMPANY_SOURCE, excerpts, fetch_document, industry_code, load_document, report_rcept_no, segment_sales
 from excerpt_check import excerpt_check
@@ -102,6 +103,7 @@ class Bundle:
     price_stale: str = ""
     shares: pd.DataFrame = field(default_factory=pd.DataFrame)
     shares_error: str = ""
+    dummy: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 @dataclass(frozen=True)
@@ -192,8 +194,9 @@ def append_source(sources, collect):
 
 
 def all_rows(bundle):
-    """Every shared-table row a claim may cite: financials, segments, prices, shares."""
-    return pd.concat([t for t in (bundle.records, bundle.segments, bundle.prices, bundle.shares) if not t.empty],
+    """Every shared-table row a claim may cite: financials, segments, prices, shares, a member's dummy rows."""
+    return pd.concat([t for t in (bundle.records, bundle.segments, bundle.prices, bundle.shares, bundle.dummy)
+                      if not t.empty],
                      ignore_index=True)
 
 
@@ -568,13 +571,14 @@ def new_run_dir(runs_root, stock_code, year, now):
     return run_dir
 
 
-def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_rounds=1, quota_dirs=("data",)):
+def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_rounds=1, quota_dirs=("data",),
+        dummy_data=None):
     """Parts -> center -> one number check over all their text -> quality check -> (fix flagged parts,
     center again, number check again) -> cross-examination -> report.md and verification.md.
     A failed stage, or the main model hitting its daily limit, stops the stages after it;
     rerunning reuses every answer whose question is unchanged. prompts_dirs: folders searched in order for
     each prompt (see find_prompts). quota_dirs: where record files of calls made with the same key live,
-    for the budget printed before the run."""
+    for the budget printed before the run. dummy_data: (part, csv path) of a member's dummy rows, see dummy.py."""
     run_dir = Path(run_dir)
     bundle = None
     caller = _Caller(run_dir, api_key)
@@ -589,7 +593,11 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
         _check_budget(quota_dirs, max_qa_rounds)
         stage = "데이터 묶음"
         n_years = max([2, *(specs[n].scope.years for n in PART_NAMES if specs[n].scope)])
-        bundle = build_bundle(stock_code, year, n_years, dart_key)
+        plain = bundle = build_bundle(stock_code, year, n_years, dart_key)
+        mine = dummy_data[0] if dummy_data else None
+        if dummy_data:
+            bundle, dummy_status = dummy.attach(plain, *dummy_data)
+            caller.status += dummy_status
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "bundle.txt").write_text(bundle_text(bundle), encoding="utf-8")
         state["excerpts"] = {e["id"]: e["글"] for e in bundle.excerpts}
@@ -603,7 +611,9 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
         if eps_line(bundle):
             caller.status.append(("EPS 대조", "ℹ", eps_line(bundle)))
         all_records = all_rows(bundle)
-        base = {n: part_question(n, specs[n], bundle) for n in PART_NAMES}
+        # Every other part is asked from the bundle as it was before the dummy rows, so its question cannot change.
+        base = {n: part_question(n, specs[n], bundle) + dummy.block(bundle) if n == mine else part_question(n, specs[n], plain)
+                for n in PART_NAMES}
         notes = {}
         for rnd in range(max_qa_rounds + 1):
             stage = f"파트 (바퀴 {rnd})"
@@ -615,7 +625,7 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
             stage = f"센터장 (바퀴 {rnd})"
             parts_text = "\n\n".join(f"[파트 글: {specs[n].part}]\n{_plain(state['answers'][n])}" for n in PART_NAMES)
             prompt = (f"{_fill(specs['center'].body, bundle)}\n\n{CENTER_RULES}\n\n[쓸 칸]\n{_slots(specs['center'].pages)}"
-                      f"\n\n{parts_text}")
+                      f"\n\n{parts_text}") + (dummy.block(bundle) if mine == "center" else "")
             if notes.get("center"):
                 prompt += f"\n\n[이전 답]\n{_plain(state['answers']['center'])}\n\n[고칠 점]\n" + "\n".join(f"- {x}" for x in notes["center"])
             state["answers"]["center"] = _write(caller, specs["center"], rnd, prompt, state["bad_format"])
@@ -724,7 +734,8 @@ def render_html(run_dir, bundle, specs):
                             for _, r in checked.iterrows()]
     page_owner = {p: n for n in (*PART_NAMES, "center") for p in specs[n].pages}
     pages = {p: {s: answers.get(page_owner.get(p), {}).get(s) for s in subs} for p, (_, subs) in PAGES.items()}
-    return write_html(report_data(bundle, pages, checked), run_dir / "report.html")
+    pages, checked = dummy.mark_inputs(bundle, pages, checked)
+    return write_html(dummy.mark_data(report_data(bundle, pages, checked), bundle), run_dir / "report.html")
 
 
 def render_verification(caller, state, bundle, path):
@@ -739,7 +750,7 @@ def render_verification(caller, state, bundle, path):
         lines += ["판정은 엔진 그대로예요. 발췌 대조 칸은 표 근거가 없는 숫자가 문장이 인용한 발췌(E#) 글에 있는지 코드가 찾은 결과예요.", "",
                   "| 주장 | 파트 | 적은 숫자 | 근거 id | 판정 | 이유 | 발췌 대조 |", "|---|---|---|---|---|---|---|"]
         lines += [f"| {r['claim_id']} {r['문장']} | {state['owners'].get(r['claim_id'], '')} | "
-                  f"{'' if is_blank(r['적은 숫자']) else r['적은 숫자']} {r['적은 단위']} | {r['근거 id']} | {r['판정']} | {r['이유']} | "
+                  f"{'' if is_blank(r['적은 숫자']) else r['적은 숫자']} {r['적은 단위']} | {r['근거 id']} | {dummy.verdict(r, bundle)} | {r['이유']} | "
                   f"{excerpt_check(r['문장'], r['근거 id'], r['적은 숫자'], state['excerpts'], state['excerpt_sources'])} |"
                   .replace("\n", " ") for _, r in checked.iterrows()]
     lines += ["", "## ② 반대신문", ""]
@@ -759,6 +770,7 @@ def render_verification(caller, state, bundle, path):
                   + (" (변화량: 엔진 표에 변화량 줄이 없어 대조 못 하는 알려진 한계)"
                      if _norm(str(r["적은 단위"])) in DELTA_UNITS else "")
                   for _, r in left.iterrows()]
+    lines += dummy.checklist(checked, bundle)
     if bundle is not None:
         if bundle.prices.empty:
             lines.append(f"- [ ] 주가 없음, 밸류에이션 괴리율 계산 불가: {bundle.price_error or '수집 안 됨'}")
