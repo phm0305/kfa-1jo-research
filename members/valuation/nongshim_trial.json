@@ -1,0 +1,42 @@
+{
+  "valuation_date": "2026-11-19",
+  "price": {"date": "2026-11-19", "close": 342000, "source": "https://aikstockdata.com/s/004370"},
+  "actual": {
+    "period_end": "2025-12-31",
+    "filing_date": "2026-03-11",
+    "net_income": 170132973883,
+    "equity": 2830704457688,
+    "issued_shares": 6082642,
+    "year_end_float": 5834188,
+    "weighted_average_shares": 5798304,
+    "disclosed_eps": 29342,
+    "source": "https://image.nongshim.com/eng/audit/1777510309494.pdf"
+  },
+  "forecast": {
+    "published": "2026-11-16",
+    "year": 2027,
+    "eps": 34050,
+    "bps": 528243,
+    "source": "https://file.hanaw.com/download/research/FileServer/WEB/industry/enterprise/2026/11/13/edit-NongShim_202611.pdf"
+  },
+  "peer_snapshot": {
+    "published": "2026-10-07",
+    "year": 2027,
+    "source": "https://rdata.kbsec.com/pdf_data/20261007160711123K.pdf",
+    "peers": [
+      {"name": "Tingyi", "per": 11.6, "pbr": 3.5},
+      {"name": "Nissin Foods", "per": 16.7, "pbr": 1.5},
+      {"name": "Toyo Suisan", "per": 13.8, "pbr": 1.7}
+    ]
+  },
+  "trial_assumptions": {
+    "description": "시나리오 민감도 검증용 가정. 목표 PER은 피어 중앙값, 목표 PBR은 ROE 격차를 감안해 중앙값의 하한 0.5배를 시험한다. 상위 파트 전망이나 확정 목표 배수가 아니다.",
+    "per_reference_factor": 1,
+    "pbr_reference_factor": 0.5,
+    "scenarios": [
+      {"name": "Bear", "eps_factor": 0.9, "bps_factor": 0.95},
+      {"name": "Base", "eps_factor": 1, "bps_factor": 1},
+      {"name": "Bull", "eps_factor": 1.1, "bps_factor": 1.05}
+    ]
+  }
+}
