@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1조 AI 리서치 센터 시제품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* one dark glass world: search alone at center, then docks top-right; left rail picks a part, verification log is its own view */
+  --ink: #0a0f1e;
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --line: rgba(255, 255, 255, 0.11);
+  --text: #e8ecf6;
+  --muted: #9aa4bd;
+  --accent: #8ab4ff;
+  --up: #5fd39a;
+  --down: #ff7d7d;
+  --hold: #f2c46d;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+  --dock-space: 84px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background:
+    radial-gradient(40rem 30rem at 12% 8%, rgba(88, 116, 255, 0.28), transparent 70%),
+    radial-gradient(36rem 28rem at 92% 18%, rgba(176, 92, 255, 0.20), transparent 70%),
+    radial-gradient(44rem 32rem at 70% 95%, rgba(40, 190, 200, 0.16), transparent 70%),
+    var(--ink);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+}
+button { font: inherit; color: inherit; }
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 19px; }
+h3 { font-size: 15px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { position: relative; min-height: 100%; }
+
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 72px;
+  display: flex; align-items: center; gap: 18px; padding: 0 20px;
+}
+.brand { background: none; border: 0; padding: 6px 2px; font-weight: 600; cursor: pointer; letter-spacing: 0.01em; }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; transition: opacity 0.6s var(--ease-move) 0.6s; }
+.tabs button { background: none; border: 0; padding: 7px 14px; border-radius: 9px; color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--glass-strong); color: var(--text); }
+body.landing .tabs { opacity: 0; pointer-events: none; transition-delay: 0s; }
+
+.search {
+  position: absolute; z-index: 10;
+  top: 14px; left: calc(100% - 20px); width: 320px; transform: translate(-100%, 0);
+  padding: 8px; display: flex; flex-direction: column; gap: 0;
+  transition: top 1.1s var(--ease-move), left 1.1s var(--ease-move), width 1.1s var(--ease-move), transform 1.1s var(--ease-move), padding 1.1s var(--ease-move);
+}
+body.landing .search { top: 44%; left: 50%; width: min(560px, calc(100% - 40px)); transform: translate(-50%, -50%); padding: 26px; }
+.search-lead { overflow: hidden; max-height: 0; opacity: 0; transition: max-height 0.8s var(--ease-move), opacity 0.5s var(--ease-move); }
+body.landing .search-lead { max-height: 120px; opacity: 1; margin-bottom: 16px; }
+.search-lead h1 { font-size: 24px; }
+.search-row { display: flex; gap: 8px; }
+.search input {
+  flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.28); color: var(--text); font: inherit;
+  transition: padding 1.1s var(--ease-move), font-size 1.1s var(--ease-move);
+}
+body.landing .search input { padding: 14px 16px; font-size: 17px; }
+.btn { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--glass-strong); cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: rgba(255, 255, 255, 0.25); }
+.search-hint { overflow: hidden; max-height: 0; opacity: 0; transition: max-height 0.8s var(--ease-move), opacity 0.5s var(--ease-move); }
+body.landing .search-hint { max-height: 60px; opacity: 1; margin-top: 12px; }
+.chip-btn { background: none; border: 1px solid rgba(138, 180, 255, 0.45); color: var(--accent); border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 13px; }
+.search-error { color: var(--down); font-size: 13px; min-height: 0; }
+.search-error:not(:empty) { margin-top: 8px; }
+
+.workspace {
+  padding: var(--dock-space) 20px 48px; max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: 250px 1fr; gap: 20px; align-items: start;
+  transition: opacity 1.3s var(--ease-move) 0.7s, transform 1.3s var(--ease-move) 0.7s;
+}
+body.landing .workspace { opacity: 0; transform: translateY(24px); pointer-events: none; visibility: hidden; transition: none; }
+
+.sidebar { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+.co-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.co-card .name { font-size: 20px; font-weight: 600; }
+.co-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; font-size: 13px; }
+.co-prices .k { color: var(--muted); font-size: 12px; }
+.rail { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.rail button {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  text-align: left; background: none; border: 0; padding: 10px 12px; border-radius: 10px; color: var(--muted); cursor: pointer;
+}
+.rail button:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+.rail button[aria-current="true"] { color: var(--text); background: var(--glass-strong); box-shadow: inset 2px 0 0 var(--accent); }
+.rail .who { font-size: 12px; color: var(--muted); }
+.rail-title { font-size: 12px; color: var(--muted); padding: 6px 12px 4px; }
+
+.example-banner {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 14px; border-radius: 12px; margin-bottom: 14px;
+  border: 1px dashed rgba(242, 196, 109, 0.6); color: var(--hold); font-size: 13px; background: rgba(242, 196, 109, 0.07);
+}
+.panel { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+.panel[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .panel.enter { animation: rise 0.35s var(--ease); }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1px solid currentColor; width: fit-content; }
+.pill.up { color: var(--up); background: rgba(95, 211, 154, 0.1); }
+.pill.down { color: var(--down); background: rgba(255, 125, 125, 0.1); }
+.pill.hold { color: var(--hold); background: rgba(242, 196, 109, 0.1); }
+
+.one-line { font-size: 18px; margin: 0; }
+.ln { display: block; }
+.para + .para { margin-top: 8px; }
+.bul { margin: 6px 0 0; padding-left: 18px; list-style: disc; }
+.notes .bul li, .points .bul li { padding: 0; margin: 2px 0; border: 0; border-radius: 0; background: none; position: static; counter-increment: none; }
+.points .bul li::before { content: none; }
+.price-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tile { padding: 12px 14px; border-radius: 14px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--line); }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 20px; margin-top: 2px; }
+.key-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.key { padding: 16px; display: flex; flex-direction: column; gap: 6px; border-radius: 14px; background: rgba(0, 0, 0, 0.18); border: 1px solid var(--line); }
+.key.star { border-color: rgba(138, 180, 255, 0.55); box-shadow: 0 0 0 1px rgba(138, 180, 255, 0.25) inset; }
+.key .label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.key .value { font-size: 24px; }
+.key .why { font-size: 13px; color: var(--muted); }
+.star-tag { font-size: 11px; color: var(--accent); border: 1px solid rgba(138, 180, 255, 0.5); border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--font-num); font-size: 11px; }
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.notes li { padding: 12px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); }
+.src { display: inline-block; margin-left: 4px; font-family: var(--font-num); font-size: 11px; color: var(--accent); background: none; border: 1px solid rgba(138, 180, 255, 0.4); border-radius: 6px; padding: 0 5px; vertical-align: 1px; cursor: pointer; }
+.src:hover { background: rgba(138, 180, 255, 0.12); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+td.up { color: var(--up); }
+td.down { color: var(--down); }
+
+.method { padding: 14px 16px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); }
+.sens-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.cell { padding: 12px 8px; border-radius: 12px; text-align: center; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); }
+.cell .m { font-size: 12px; color: var(--muted); }
+.cell .p { font-size: 15px; margin-top: 2px; }
+.cell.pivot { border-color: var(--hold); background: rgba(242, 196, 109, 0.1); }
+.cell.pivot .m { color: var(--hold); }
+.cell.target { border-color: var(--up); background: rgba(95, 211, 154, 0.08); }
+.cell.target .m { color: var(--up); }
+
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: pt; }
+.points li { counter-increment: pt; padding: 14px 16px 14px 52px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); position: relative; }
+.points li::before { content: counter(pt); position: absolute; left: 16px; top: 14px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-num); font-size: 12px; background: var(--glass-strong); border: 1px solid var(--line); }
+.refs { margin-top: 6px; font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 13px; }
+
+.status { display: inline-block; font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.status.pass { color: var(--up); }
+.status.hold { color: var(--hold); }
+.status.reject { color: var(--down); }
+.verify-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.flow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.flow span.step { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.2); color: var(--text); }
+.verify th { text-align: left; }
+.verify td { white-space: normal; text-align: left; vertical-align: top; }
+.verify td.nowrap { white-space: nowrap; }
+
+.sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sources li { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: baseline; padding: 10px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); }
+.sources li.flash { border-color: var(--accent); }
+details summary { cursor: pointer; color: var(--muted); }
+pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); overflow-x: auto; font-family: var(--font-num); font-size: 12px; line-height: 1.5; max-height: 420px; }
+
+@media (max-width: 860px) {
+  :root { --dock-space: 132px; }
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .rail { flex-direction: row; overflow-x: auto; }
+  .rail-title { display: none; }
+  .rail button { flex: 0 0 auto; }
+  .rail .who { display: none; }
+  .two-col { grid-template-columns: 1fr; }
+  .verify-tiles { grid-template-columns: repeat(2, 1fr); }
+  .search { top: 66px; left: 20px; width: calc(100% - 40px); transform: none; }
+  .topbar { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .key-grid, .price-tiles { grid-template-columns: 1fr; }
+  .sens-row { grid-auto-flow: row; }
+  .sources li { grid-template-columns: 40px 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search, .search input, .search-lead, .search-hint, .workspace, .tabs { transition: none !important; }
+}
+</style>
+</head>
+<body class="landing">
+<div class="app">
+
+  <header class="topbar">
+    <button class="brand" id="brand" type="button" title="처음 화면으로">1조 AI 리서치 센터</button>
+    <div class="tabs glass" role="tablist" aria-label="산출물">
+      <button type="button" role="tab" id="tab-report" aria-selected="true">리서치 리포트</button>
+      <button type="button" role="tab" id="tab-verify" aria-selected="false">검증 기록지</button>
+    </div>
+  </header>
+
+  <form class="search glass" id="search-form" novalidate>
+    <div class="search-lead">
+      <h1>어떤 종목을 볼까요?</h1>
+      <p class="muted small" style="margin:6px 0 0">종목명이나 코드를 넣으면 리서치 리포트와 검증 기록지를 함께 보여줍니다.</p>
+    </div>
+    <div class="search-row">
+      <input id="ticker-input" type="text" placeholder="종목명 또는 종목코드" aria-label="종목명 또는 종목코드" autocomplete="off">
+      <button class="btn" type="submit">분석</button>
+    </div>
+    <div class="search-error" id="search-error" role="alert"></div>
+    <div class="search-hint small muted"><span id="try-label">지금 볼 수 있는 예시:</span> <button type="button" class="chip-btn" id="try-example">예시반도체 000000</button></div>
+  </form>
+
+  <div class="workspace" id="workspace">
+    <aside class="sidebar">
+      <div class="co-card glass">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span class="name" id="co-name"></span>
+          <span class="pill" id="opinion"></span>
+        </div>
+        <div class="small muted num" id="co-meta"></div>
+        <div class="co-prices">
+          <div><div class="k">현재가</div><div class="num" id="side-now"></div><div class="small muted" id="side-now-meta"></div></div>
+          <div><div class="k">목표가</div><div class="num" id="side-target"></div></div>
+        </div>
+      </div>
+      <nav class="rail glass" id="rail" aria-label="파트"></nav>
+    </aside>
+
+    <main id="main">
+      <div class="example-banner" role="note"><strong>예시 데이터</strong><span>가상의 종목 '예시반도체'와 예시 값입니다. 실제 기업·실제 수치가 아닙니다.</span></div>
+
+      <div id="view-report">
+        <section class="panel glass" data-panel="summary" aria-labelledby="h-summary">
+          <div class="panel-head"><h2 id="h-summary">한눈에 보기</h2><span class="small muted" id="as-of"></span></div>
+          <div class="one-line" id="one-line"></div>
+          <div class="price-tiles">
+            <div class="tile"><div class="k">현재가</div><div class="v num" id="price-now"></div><div class="small muted" id="price-now-meta"></div></div>
+            <div class="tile"><div class="k">목표가</div><div class="v num" id="price-target"></div></div>
+            <div class="tile"><div class="k">상승 여력</div><div class="v num" id="upside"></div></div>
+          </div>
+          <div class="panel-head"><h3>이 업종에서 먼저 볼 지표</h3><span class="small muted">테두리 강조 = 판단에 가장 크게 작용한 지표</span></div>
+          <div class="key-grid" id="key-grid"></div>
+        </section>
+
+        <section class="panel glass" data-panel="industry" aria-labelledby="h-industry" hidden>
+          <div class="panel-head"><h2 id="h-industry">산업 분석</h2></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <span class="pill" id="industry-trend"></span>
+            <h3 id="industry-headline"></h3>
+          </div>
+          <div class="two-col">
+            <div>
+              <div class="small muted" id="industry-series-label"></div>
+              <svg class="chart" id="industry-chart" viewBox="0 0 560 220" role="img" aria-label="분기별 업황 지표 추이"></svg>
+            </div>
+            <ul class="notes" id="industry-notes"></ul>
+          </div>
+        </section>
+
+        <section class="panel glass" data-panel="company" aria-labelledby="h-company" hidden>
+          <div class="panel-head"><h2 id="h-company">기업·재무 분석</h2></div>
+          <div class="two-col">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>항목</th><th id="col-prev"></th><th id="col-curr"></th><th>변동</th></tr></thead>
+                <tbody id="company-table"></tbody>
+              </table>
+              <p class="small muted" id="company-unit"></p>
+            </div>
+            <div>
+              <h3 style="margin-bottom:10px">왜 변했나</h3>
+              <ul class="notes" id="company-drivers"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel glass" data-panel="valuation" aria-labelledby="h-valuation" hidden>
+          <div class="panel-head"><h2 id="h-valuation">밸류에이션</h2></div>
+          <div class="method" id="valuation-method"></div>
+          <div>
+            <h3 style="margin-bottom:8px">민감도: 적용 배수에 따른 주가</h3>
+            <div class="sens-row" id="sens-row"></div>
+            <p class="small muted" style="margin:8px 0 0">노란 칸은 지금 주가를 설명하는 배수(임계값), 초록 칸은 목표가에 쓴 배수입니다.</p>
+          </div>
+          <div id="valuation-conclusion" style="margin:0"></div>
+        </section>
+
+        <section class="panel glass" data-panel="conclusion" aria-labelledby="h-conclusion" hidden>
+          <div class="panel-head"><h2 id="h-conclusion">결론과 투자 포인트</h2></div>
+          <ol class="points" id="points"></ol>
+        </section>
+
+        <section class="panel glass" data-panel="sources" aria-labelledby="h-sources" hidden>
+          <div class="panel-head"><h2 id="h-sources">출처 목록</h2><span class="small muted">본문의 [S#] 꼬리표가 가리키는 자료</span></div>
+          <ul class="sources" id="source-list"></ul>
+          <details>
+            <summary>이 화면을 그린 데이터(JSON) 보기</summary>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+              <span class="small muted">엔진 출구가 이 모양으로 내보내면 화면이 그대로 그려집니다.</span>
+              <button class="btn" id="copy-json" type="button">JSON 복사</button>
+            </div>
+            <pre id="json-view"></pre>
+          </details>
+        </section>
+      </div>
+
+      <div id="view-verify" hidden>
+        <section class="panel glass" aria-labelledby="h-verify">
+          <div class="panel-head"><h2 id="h-verify">검증 기록지</h2></div>
+          <div class="flow" aria-label="검증 순서">
+            <span class="step">파트가 낸 주장</span><span>→</span>
+            <span class="step">숫자 대조</span><span>→</span>
+            <span class="step">반대신문</span><span>→</span>
+            <span class="step">판정</span><span>→</span>
+            <span class="step">보류·반려는 되돌림</span>
+          </div>
+          <div class="verify-tiles" id="verify-tiles"></div>
+          <div class="table-wrap">
+            <table class="verify">
+              <thead><tr><th>#</th><th>주장</th><th>파트</th><th>판정</th><th>검증 메모</th><th>되돌린 곳</th></tr></thead>
+              <tbody id="verify-table"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script type="application/json" id="report-data">
+{
+  "meta": {
+    "is_example": false,
+    "ticker": "004370",
+    "name": "농심",
+    "industry": "식품제조및 판매 등",
+    "as_of": "2025-12-31",
+    "currency": "KRW"
+  },
+  "summary": {
+    "opinion": "확인 필요",
+    "one_line": "확인 필요",
+    "current_price": null,
+    "price_as_of": null,
+    "price_source": null,
+    "upside_note": null
+  },
+  "key_metrics": [
+    {
+      "label": "매출 성장률 (M4)",
+      "value": 2.2,
+      "unit": "%",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "영업이익률 (M5)",
+      "value": 5.23,
+      "unit": "%",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "부채비율 (M6)",
+      "value": 35.0,
+      "unit": "%",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "EPS (M7)",
+      "value": 29161.38,
+      "unit": "원",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "BPS (M8)",
+      "value": 485192.53,
+      "unit": "원",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "시가총액 (M9)",
+      "value": null,
+      "unit": "원",
+      "star": false,
+      "why": "",
+      "source": "S7"
+    },
+    {
+      "label": "PER (M10)",
+      "value": null,
+      "unit": "배",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    },
+    {
+      "label": "PBR (M11)",
+      "value": null,
+      "unit": "배",
+      "star": false,
+      "why": "",
+      "source": "S3"
+    }
+  ],
+  "industry": {
+    "trend": "flat",
+    "headline": "내수소비형 산업, 현재 판정 불가(산업 통계 부족), 핵심 변수는 원자재 가격 및 해외 판로 확대",
+    "series_label": "라면 매출 (II. 사업의 내용 품목 표 합계, 억원) [S4]",
+    "series": [
+      {
+        "period": "2023",
+        "value": 26797.8
+      },
+      {
+        "period": "2024",
+        "value": 28140.5
+      },
+      {
+        "period": "2025",
+        "value": 29909.8
+      }
+    ],
+    "notes": [
+      {
+        "text": "국내 면류 및 스낵 산업은 내수 소비 기반의 성숙기 산업으로 인구 구조 변화에 따른 양적 저성장을 프리미엄화와 해외 시장 확장을 통해 대응하고 있습니다.\n- 농심의 업종코드는 108이며 [S6], 사업의 내용상 면류, 스낵, 음료 등을 제조·판매하는 사업을 영위하고 있습니다 [S4, E1].\n- 주력인 라면 품목 매출액은 2023년 2,679,777백만원 [004370|품목 매출(라면, 합계)|연결|2023-12-31|DART 사업보고서 원문: II. 사업의 내용], 2024년 2,814,049백만원 [004370|품목 매출(라면, 합계)|연결|2024-12-31|DART 사업보고서 원문: II. 사업의 내용], 2025년 2,990,975백만원 [004370|품목 매출(라면, 합계)|연결|2025-12-31|DART 사업보고서 원문: II. 사업의 내용]으로 꾸준히 증가하고 있으나, 영업이익률은 2024년 4.74% (M2)에서 2025년 5.23% (M5)로 반등하며 횡보세를 보이고 있습니다.\n- 국내 라면 시장 점유율은 2023년 56.0%, 2024년 56.3%, 2025년 56.3%로 과반의 확고한 1위를 유지 중이며, 스낵 시장 점유율은 2023년 32.7%, 2024년 32.5%, 2025년 32.1%를 기록하고 있습니다 [S4, E4].\n- 외부 산업 통계(KOSIS 소매판매 등) 데이터 부재로 3개월 YoY 기준 사이클 국면은 판정 불가 상태이나, 전방 수요의 비탄력적 특성과 환율 및 국제 원자재 시세가 핵심 수익성 결정 요인으로 작용하고 있습니다 [S4, E4].\n표 필요: (국내 라면 및 스낵 시장 점유율 추이 및 품목별 매출 비중 표)",
+        "source": null
+      }
+    ]
+  },
+  "company": {
+    "unit": "단위: 억원(공통 재무 표 값을 코드가 바꿈), 비율은 %(지표 표 M#)",
+    "periods": [
+      "2024",
+      "2025"
+    ],
+    "rows": [
+      {
+        "item": "자산총계",
+        "prev": 35974.6,
+        "curr": 38221.2,
+        "kind": "amount"
+      },
+      {
+        "item": "자본총계",
+        "prev": 26725.8,
+        "curr": 28311.9,
+        "kind": "amount"
+      },
+      {
+        "item": "부채총계",
+        "prev": 9248.9,
+        "curr": 9909.4,
+        "kind": "amount"
+      },
+      {
+        "item": "영업이익(연간)",
+        "prev": 1630.7,
+        "curr": 1839.3,
+        "kind": "amount"
+      },
+      {
+        "item": "당기순이익(연간)",
+        "prev": 1576.3,
+        "curr": 1700.5,
+        "kind": "amount"
+      },
+      {
+        "item": "매출액(연간)",
+        "prev": 34387.3,
+        "curr": 35143.2,
+        "kind": "amount"
+      },
+      {
+        "item": "지배주주순이익(연간)",
+        "prev": null,
+        "curr": 1701.3,
+        "kind": "amount"
+      },
+      {
+        "item": "지배주주자본",
+        "prev": null,
+        "curr": 28307.0,
+        "kind": "amount"
+      },
+      {
+        "item": "매출 성장률 (M1, M4)",
+        "prev": 0.83,
+        "curr": 2.2,
+        "kind": "ratio"
+      },
+      {
+        "item": "영업이익률 (M2, M5)",
+        "prev": 4.74,
+        "curr": 5.23,
+        "kind": "ratio"
+      },
+      {
+        "item": "부채비율 (M3, M6)",
+        "prev": 34.61,
+        "curr": 35.0,
+        "kind": "ratio",
+        "lower_is_better": true
+      },
+      {
+        "item": "EPS (M7)",
+        "prev": null,
+        "curr": 29161.38,
+        "kind": "ratio"
+      },
+      {
+        "item": "BPS (M8)",
+        "prev": null,
+        "curr": 485192.53,
+        "kind": "ratio"
+      },
+      {
+        "item": "시가총액 (M9)",
+        "prev": null,
+        "curr": null,
+        "kind": "ratio"
+      },
+      {
+        "item": "PER (M10)",
+        "prev": null,
+        "curr": null,
+        "kind": "ratio"
+      },
+      {
+        "item": "PBR (M11)",
+        "prev": null,
+        "curr": null,
+        "kind": "ratio"
+      }
+    ],
+    "drivers": [
+      {
+        "text": "확인 필요",
+        "source": null
+      }
+    ]
+  },
+  "valuation": {
+    "method": "확인 필요",
+    "method_reason": "",
+    "bps": 485192.5336804368,
+    "multiples": [],
+    "target_multiple": null,
+    "conclusion": "확인 필요"
+  },
+  "conclusion": {
+    "points": [
+      {
+        "text": "확인 필요",
+        "refs": []
+      },
+      {
+        "text": "확인 필요",
+        "refs": []
+      },
+      {
+        "text": "확인 필요",
+        "refs": []
+      }
+    ]
+  },
+  "verification": {
+    "claims": []
+  },
+  "cite_sources": [
+    {
+      "cite": "004370|자산총계|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|자본총계|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|부채총계|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|영업이익(연간)|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|당기순이익(연간)|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|매출액(연간)|연결|2023-12-31",
+      "source": "S1"
+    },
+    {
+      "cite": "004370|자산총계|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|자본총계|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|부채총계|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|영업이익(연간)|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|당기순이익(연간)|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|매출액(연간)|연결|2024-12-31",
+      "source": "S2"
+    },
+    {
+      "cite": "004370|자산총계|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|자본총계|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|부채총계|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|영업이익(연간)|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|당기순이익(연간)|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|매출액(연간)|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|지배주주순이익(연간)|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|지배주주자본|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|기본주당이익(연간)|연결|2025-12-31",
+      "source": "S3"
+    },
+    {
+      "cite": "004370|지역 외부매출(한국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(중국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(미국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(캐나다)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(일본)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(호주)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(베트남)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(유럽)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(조정ㆍ제거)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(지역합계)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(한국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(중국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(미국)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(캐나다)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(일본)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(호주)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(베트남)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(유럽)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(조정ㆍ제거)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(지역합계)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(한국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(중국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(미국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(캐나다)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(일본)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(호주)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(베트남)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(유럽)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(조정ㆍ제거)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 외부매출(지역합계)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(한국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(중국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(미국)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(캐나다)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(일본)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(호주)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(베트남)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(유럽)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(조정ㆍ제거)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|지역 부문영업손익(지역합계)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 내수)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 수출)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 매출액)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 내수)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 수출)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 매출액)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 내수)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 수출)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 매출액)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 내수)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 수출)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 매출액)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 내수)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 수출)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 매출액)|연결|2025-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 내수)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 수출)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 매출액)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 내수)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 수출)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 매출액)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 내수)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 수출)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 매출액)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 내수)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 수출)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 매출액)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 내수)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 수출)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(제품과용역합계, 매출액)|연결|2024-12-31",
+      "source": "S5"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 내수)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 수출)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 합계)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 내수)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 수출)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 합계)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 내수)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 수출)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 합계)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 내수)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 소계)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 내수)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 수출)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 합계)|연결|2025-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 내수)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 수출)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 합계)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 내수)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 수출)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 합계)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 내수)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 수출)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 합계)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 내수)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 소계)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 내수)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 수출)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 합계)|연결|2024-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 내수)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 수출)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(라면, 합계)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 내수)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 수출)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(스낵, 합계)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 내수)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 수출)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(기타, 합계)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 내수)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출에누리등, 소계)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 내수)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 수출)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|품목 매출(매출총계, 합계)|연결|2023-12-31",
+      "source": "S4"
+    },
+    {
+      "cite": "004370|발행주식수(보통주)|해당 없음|2025-12-31",
+      "source": "S7"
+    },
+    {
+      "cite": "004370|자기주식수(보통주)|해당 없음|2025-12-31",
+      "source": "S7"
+    },
+    {
+      "cite": "004370|유통주식수(보통주)|해당 없음|2025-12-31",
+      "source": "S7"
+    },
+    {
+      "cite": "M1",
+      "source": "S2"
+    },
+    {
+      "cite": "M2",
+      "source": "S2"
+    },
+    {
+      "cite": "M3",
+      "source": "S2"
+    },
+    {
+      "cite": "M4",
+      "source": "S3"
+    },
+    {
+      "cite": "M5",
+      "source": "S3"
+    },
+    {
+      "cite": "M6",
+      "source": "S3"
+    },
+    {
+      "cite": "M7",
+      "source": "S3"
+    },
+    {
+      "cite": "M8",
+      "source": "S3"
+    },
+    {
+      "cite": "M9",
+      "source": "S7"
+    },
+    {
+      "cite": "M10",
+      "source": "S3"
+    },
+    {
+      "cite": "M11",
+      "source": "S3"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "name": "DART 단일회사 전체 재무제표 API",
+      "as_of": "2023-12-31"
+    },
+    {
+      "id": "S2",
+      "name": "DART 단일회사 전체 재무제표 API",
+      "as_of": "2024-12-31"
+    },
+    {
+      "id": "S3",
+      "name": "DART 단일회사 전체 재무제표 API",
+      "as_of": "2025-12-31"
+    },
+    {
+      "id": "S4",
+      "name": "DART 사업보고서 원문: II. 사업의 내용",
+      "as_of": "2023-12-31 ~ 2025-12-31"
+    },
+    {
+      "id": "S5",
+      "name": "DART 사업보고서 원문: 연결재무제표 주석 영업부문",
+      "as_of": "2024-12-31 ~ 2025-12-31"
+    },
+    {
+      "id": "S6",
+      "name": "DART 기업개황 API",
+      "as_of": "조회 시점"
+    },
+    {
+      "id": "S7",
+      "name": "DART 주식총수 현황 API",
+      "as_of": "2025-12-31"
+    },
+    {
+      "id": "E1",
+      "name": "발췌: 1. 사업의 개요 [S4]",
+      "as_of": ""
+    },
+    {
+      "id": "E2",
+      "name": "발췌: 2. 주요 제품 및 서비스 [S4]",
+      "as_of": ""
+    },
+    {
+      "id": "E3",
+      "name": "발췌: 3. 원재료 및 생산설비 [S4]",
+      "as_of": ""
+    },
+    {
+      "id": "E4",
+      "name": "발췌: 7. 기타 참고사항 [S4]",
+      "as_of": ""
+    }
+  ]
+}
+</script>
+
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("report-data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const NEED = "확인 필요";
+  const missing = (n) => n === null || n === undefined || Number.isNaN(Number(n));
+  const won = (n) => (missing(n) ? NEED : Math.round(n).toLocaleString("ko-KR") + "원");
+  const fmt = (n, d = 1) => (missing(n) ? NEED : Number(n).toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // Paragraphs split on blank lines, other line breaks kept, and runs of "- " lines drawn as a list.
+  const rich = (s) => String(s).split(/\n\s*\n/).filter((p) => p.trim()).map((p) => {
+    const out = [];
+    let items = [];
+    const flush = () => { if (items.length) out.push(`<ul class="bul">${items.join("")}</ul>`); items = []; };
+    for (const line of p.split("\n")) {
+      const m = line.match(/^\s*-\s+(.*)$/);
+      if (m) items.push(`<li>${esc(m[1])}</li>`);
+      else if (line.trim()) { flush(); out.push(`<span class="ln">${esc(line)}</span>`); }
+    }
+    flush();
+    return `<div class="para">${out.join("")}</div>`;
+  }).join("");
+  // Report text keeps its citations (the number check reads them); the page hides them and puts one footnote per card.
+  const CITE_SOURCE = Object.fromEntries((data.cite_sources || []).map((c) => [c.cite, c.source]));
+  const RID = /\d{6}\|[^|\]]+\|[^|\]]+\|\d{4}-\d{2}-\d{2}(?:\|[^\],]+)?/g;
+  const footnotes = [];
+  const usedAt = {};
+  const circled = (n) => n <= 20 ? String.fromCodePoint(0x2460 + n - 1) : n <= 35 ? String.fromCodePoint(0x3251 + n - 21)
+    : n <= 50 ? String.fromCodePoint(0x32b1 + n - 36) : `(${n})`;
+  const strip = (text) => {
+    const used = new Set();
+    const add = (tok) => {
+      tok = tok.trim();
+      const id = /^[SE]\d+$/.test(tok) ? tok : CITE_SOURCE[tok.split("|").slice(0, 4).join("|")];
+      if (id) used.add(id);
+    };
+    const drop = (whole, inner) => {
+      const rids = [];
+      const items = inner.replace(RID, (r) => { rids.push(r); return "\u0000"; }).split(",").map((s) => s.trim());
+      if (!items.every((s) => s === "\u0000" || /^[SEM]\d+$/.test(s))) return whole;
+      items.forEach((s) => { if (s !== "\u0000") add(s); });
+      rids.forEach(add);
+      return "";
+    };
+    const out = String(text)
+      .replace(/[ \t]*\[([^\]\n]*)\]/g, drop)
+      .replace(/[ \t]*\(((?:\s*M\d+\s*,?)+)\)/g, drop)
+      .replace(/\(\s*\)/g, "")
+      .replace(/[ \t]+([.,!?;:)])/g, "$1")
+      .replace(/\([ \t]+/g, "(")
+      .replace(/(\S)[ \t]{2,}/g, "$1 ");
+    return { text: out, used };
+  };
+  const card = (text, place) => {
+    const { text: clean, used } = strip(text);
+    if (!used.size) return rich(clean);
+    const n = footnotes.push([...used]);
+    used.forEach((id) => (usedAt[id] = usedAt[id] || []).push([place, n]));
+    const fn = `<button type="button" class="src" data-fn="${n}" aria-label="각주 ${n}: 출처 보기">${circled(n)}</button>`;
+    return rich(clean).replace(/<\/(span|li)>((?:<\/ul>)?<\/div>)$/, `${fn}</$1>$2`);
+  };
+  const usedText = (id) => {
+    const byPlace = new Map();
+    (usedAt[id] || []).forEach(([place, n]) => byPlace.set(place, (byPlace.get(place) || "") + circled(n)));
+    return [...byPlace].map(([place, ns]) => `${place} ${ns}`).join(", ");
+  };
+  const srcTag = (id) => (id ? `<button type="button" class="src" data-src="${esc(id)}">${esc(id)}</button>` : "");
+  const statusText = { pass: "통과", hold: "보류", reject: "반려" };
+
+  const parts = [
+    { id: "summary", label: "한눈에 보기" },
+    { id: "industry", label: "산업 분석" },
+    { id: "company", label: "기업·재무 분석" },
+    { id: "valuation", label: "밸류에이션" },
+    { id: "conclusion", label: "결론·투자 포인트" },
+    { id: "sources", label: "출처" }
+  ];
+  const partName = Object.fromEntries(parts.map((p) => [p.id, p.label]));
+  const state = { view: "report", panel: "summary", filter: "all" };
+
+  render();
+
+  function render() {
+    const m = data.meta, s = data.summary, v = data.valuation;
+    const target = missing(v.bps) || missing(v.target_multiple) ? null : v.bps * v.target_multiple;
+    const upside = missing(target) || missing(s.current_price) ? null : target / s.current_price - 1;
+    const pivotMultiple = missing(s.current_price) || missing(v.bps) ? null : s.current_price / v.bps;
+
+    document.querySelector(".example-banner").style.display = m.is_example ? "" : "none";
+    $("try-label").textContent = m.is_example ? "지금 볼 수 있는 예시:" : "지금 볼 수 있는 종목:";
+    $("try-example").textContent = `${m.name} ${m.ticker}`;
+    $("ticker-input").value = m.name;
+
+    $("co-name").textContent = m.name;
+    $("co-meta").textContent = `${m.ticker} · ${m.industry}`;
+    const op = $("opinion");
+    op.textContent = s.opinion + (m.is_example ? " (예시)" : "");
+    op.classList.add(s.opinion === "매수" ? "up" : s.opinion === "매도" ? "down" : "hold");
+    const priceMeta = missing(s.current_price) ? "" : `기준일 ${esc(s.price_as_of)} ${srcTag(s.price_source)}`;
+    $("side-now").textContent = won(s.current_price);
+    $("side-now-meta").innerHTML = priceMeta;
+    $("price-now-meta").innerHTML = priceMeta;
+    $("side-target").textContent = won(target);
+
+    $("one-line").innerHTML = card(s.one_line, "1쪽 요약");
+    $("as-of").textContent = `기준일 ${m.as_of}`;
+    $("price-now").textContent = won(s.current_price);
+    $("price-target").textContent = won(target);
+    $("upside").textContent = s.upside_note ? s.upside_note : missing(upside) ? NEED : (upside >= 0 ? "+" : "") + fmt(upside * 100) + "%";
+    $("key-grid").innerHTML = data.key_metrics.map((k) => `
+      <div class="key${k.star ? " star" : ""}">
+        <div class="label"><span>${esc(k.label)}${srcTag(k.source)}</span>${k.star ? '<span class="star-tag">판단 핵심</span>' : ""}</div>
+        <div class="value num">${missing(k.value) ? NEED : fmt(k.value) + esc(k.unit)}</div>
+        <div class="why">${esc(k.why)}</div>
+      </div>`).join("");
+
+    const ind = data.industry;
+    const tr = $("industry-trend");
+    tr.textContent = ind.trend === "up" ? "개선 중 ▲" : ind.trend === "down" ? "꺾이는 중 ▼" : ind.trend === "flat" ? "횡보" : NEED;
+    tr.classList.add(ind.trend === "up" ? "up" : ind.trend === "down" ? "down" : "hold");
+    $("industry-headline").textContent = ind.headline;
+    $("industry-series-label").textContent = ind.series_label;
+    $("industry-notes").innerHTML = ind.notes.map((n) => `<li>${card(n.text, "2쪽 산업")}${srcTag(n.source)}</li>`).join("");
+    drawLine($("industry-chart"), ind.series);
+
+    const co = data.company;
+    $("col-prev").textContent = co.periods[0];
+    $("col-curr").textContent = co.periods[1];
+    $("company-unit").textContent = co.unit;
+    $("company-table").innerHTML = co.rows.map((r) => {
+      const isRatio = r.kind === "ratio";
+      if (missing(r.prev) || missing(r.curr) || (!isRatio && r.prev === 0)) {
+        return `<tr><td>${esc(r.item)}</td><td class="num">${fmt(r.prev)}</td><td class="num">${fmt(r.curr)}</td><td class="num">${NEED}</td></tr>`;
+      }
+      const diff = isRatio ? r.curr - r.prev : (r.curr / r.prev - 1) * 100;
+      const good = r.lower_is_better ? diff < 0 : diff > 0;
+      const label = (diff >= 0 ? "+" : "") + fmt(diff) + (isRatio ? "%p" : "%");
+      return `<tr><td>${esc(r.item)}</td><td class="num">${fmt(r.prev)}</td><td class="num">${fmt(r.curr)}</td><td class="num ${good ? "up" : "down"}">${label}</td></tr>`;
+    }).join("");
+    $("company-drivers").innerHTML = co.drivers.map((d) => `<li>${card(d.text, "3쪽 기업")}${srcTag(d.source)}</li>`).join("");
+
+    $("valuation-method").innerHTML = `<strong>적용 방식: ${esc(v.method)}</strong> <span class="muted small num">(BPS ${won(v.bps)})</span><div style="margin-top:6px">${esc(v.method_reason)}</div>`;
+    const near = (a, b) => !missing(a) && !missing(b) && Math.abs(a - b) < 0.05;
+    const hasSens = !missing(v.bps) && !missing(v.target_multiple) && v.multiples.length > 0;
+    $("sens-row").parentElement.style.display = hasSens ? "" : "none";
+    const cells = hasSens ? v.multiples.slice() : [];
+    if (hasSens && !cells.some((x) => near(x, v.target_multiple))) cells.push(v.target_multiple);
+    cells.sort((a, b) => a - b);
+    $("sens-row").innerHTML = cells.map((x) => {
+      const cls = near(x, pivotMultiple) ? " pivot" : near(x, v.target_multiple) ? " target" : "";
+      const tag = near(x, pivotMultiple) ? "현재가 임계 " : near(x, v.target_multiple) ? "목표 " : "";
+      return `<div class="cell${cls}"><div class="m">${tag}${fmt(x)}배</div><div class="p num">${won(v.bps * x)}</div></div>`;
+    }).join("");
+    $("valuation-conclusion").innerHTML = card(v.conclusion, "4쪽 밸류에이션");
+
+    const cc = data.conclusion;
+    $("points").innerHTML = cc.points.map((p) => `
+      <li>${card(p.text, "5쪽 결론")}
+        <div class="refs">근거: ${p.refs.length === 0 ? NEED : ""}${p.refs.map((r) => `<button type="button" class="link-btn" data-goto="${esc(r)}">${esc(partName[r] || r)}</button>`).join(" · ")}</div>
+      </li>`).join("");
+
+    $("source-list").innerHTML = data.sources.map((x) => `
+      <li id="src-${esc(x.id)}"><span class="num" style="color:var(--accent)">${esc(x.id)}</span><span>${esc(x.name)}${usedAt[x.id] ? `<span class="small muted" style="display:block">쓴 곳: ${esc(usedText(x.id))}</span>` : ""}</span><span class="small muted num">${esc(x.as_of)}</span></li>`).join("");
+    $("json-view").textContent = JSON.stringify(data, null, 2);
+
+    const ver = data.verification;
+    const counts = { pass: 0, hold: 0, reject: 0 };
+    ver.claims.forEach((c) => { counts[c.status] += 1; });
+    $("verify-tiles").innerHTML =
+      `<div class="tile"><div class="k">검증한 주장</div><div class="v num">${ver.claims.length}건</div></div>` +
+      Object.keys(counts).map((k) => `<div class="tile"><div class="k"><span class="status ${k}">${statusText[k]}</span></div><div class="v num">${counts[k]}건</div></div>`).join("");
+
+    renderRail();
+    renderVerifyTable();
+  }
+
+  function renderRail() {
+    const rail = $("rail");
+    if (state.view === "report") {
+      rail.innerHTML = '<div class="rail-title">리포트 파트</div>' + parts.map((p) => `
+        <button type="button" data-panel-btn="${p.id}" aria-current="${p.id === state.panel}">
+          <span>${esc(p.label)}</span>
+        </button>`).join("");
+    } else {
+      const claims = data.verification.claims;
+      const opts = [["all", "전체"], ["pass", "통과"], ["hold", "보류"], ["reject", "반려"]];
+      rail.innerHTML = '<div class="rail-title">판정별 보기</div>' + opts.map(([k, label]) => {
+        const n = k === "all" ? claims.length : claims.filter((c) => c.status === k).length;
+        return `<button type="button" data-filter-btn="${k}" aria-current="${k === state.filter}"><span>${label}</span><span class="who num">${n}</span></button>`;
+      }).join("");
+    }
+  }
+
+  function renderVerifyTable() {
+    const rows = data.verification.claims
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => state.filter === "all" || c.status === state.filter);
+    $("verify-table").innerHTML = rows.map(({ c, i }) => `
+      <tr>
+        <td class="nowrap muted num">${i + 1}</td>
+        <td>${esc(c.claim)}${srcTag(c.source)}</td>
+        <td class="nowrap">${esc(c.part)}</td>
+        <td class="nowrap"><span class="status ${c.status}">${statusText[c.status]}</span></td>
+        <td>${esc(c.note)}</td>
+        <td>${c.returned_to ? esc(c.returned_to) : '<span class="muted">해당 없음</span>'}</td>
+      </tr>`).join("");
+  }
+
+  function showPanel(id) {
+    state.panel = id;
+    document.querySelectorAll("[data-panel]").forEach((el) => {
+      const on = el.dataset.panel === id;
+      el.hidden = !on;
+      el.classList.remove("enter");
+      if (on) { void el.offsetWidth; el.classList.add("enter"); }
+    });
+    renderRail();
+  }
+
+  function setView(view) {
+    state.view = view;
+    $("tab-report").setAttribute("aria-selected", String(view === "report"));
+    $("tab-verify").setAttribute("aria-selected", String(view === "verify"));
+    $("view-report").hidden = view !== "report";
+    $("view-verify").hidden = view !== "verify";
+    renderRail();
+    renderVerifyTable();
+  }
+
+  function goToSource(id) {
+    setView("report");
+    showPanel("sources");
+    const li = $("src-" + id);
+    if (!li) return;
+    li.classList.add("flash");
+    li.scrollIntoView({ block: "center" });
+    setTimeout(() => li.classList.remove("flash"), 1600);
+  }
+
+  function goToFootnote(n) {
+    setView("report");
+    showPanel("sources");
+    document.querySelectorAll(".sources li.flash").forEach((li) => li.classList.remove("flash"));
+    const lis = footnotes[n - 1].map((id) => $("src-" + id)).filter(Boolean);
+    lis.forEach((li) => li.classList.add("flash"));
+    if (lis.length) lis[0].scrollIntoView({ block: "center" });
+  }
+
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t) return;
+    if (t.dataset.panelBtn) showPanel(t.dataset.panelBtn);
+    else if (t.dataset.filterBtn) { state.filter = t.dataset.filterBtn; renderRail(); renderVerifyTable(); }
+    else if (t.dataset.goto) { setView("report"); showPanel(t.dataset.goto); }
+    else if (t.dataset.src) goToSource(t.dataset.src);
+    else if (t.dataset.fn) goToFootnote(Number(t.dataset.fn));
+  });
+  $("tab-report").addEventListener("click", () => setView("report"));
+  $("tab-verify").addEventListener("click", () => setView("verify"));
+
+  const input = $("ticker-input");
+  const err = $("search-error");
+  input.addEventListener("input", () => { err.textContent = ""; });
+  $("try-example").addEventListener("click", () => { input.value = data.meta.name; submit(); });
+  $("search-form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  $("brand").addEventListener("click", () => {
+    document.body.classList.add("landing");
+    input.value = "";
+    err.textContent = "";
+    input.focus();
+  });
+
+  function submit() {
+    const q = input.value.trim();
+    if (!q) { err.textContent = "종목명이나 종목코드를 입력하세요."; return; }
+    if (q !== data.meta.ticker && q !== data.meta.name) {
+      err.textContent = `아직 엔진과 연결 전이라 ${data.meta.name}(${data.meta.ticker})만 볼 수 있어요.`;
+      return;
+    }
+    err.textContent = "";
+    setView("report");
+    showPanel("summary");
+    document.body.classList.remove("landing");
+    input.blur();
+  }
+
+  function drawLine(svg, series) {
+    const W = 560, H = 220, L = 56, R = 16, T = 16, B = 30;
+    series = (series || []).filter((p) => !missing(p.value));
+    if (series.length < 2) {
+      svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">${NEED}</text>`;
+      return;
+    }
+    const vals = series.map((p) => p.value);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (lo === hi) { lo -= 1; hi += 1; }
+    // Tick step from 1, 2, 5 x 10^n so about four gridlines fit any range (ten-thousands of 억원 or a few %).
+    const raw = (hi - lo) / 4, mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 5, 10].map((k) => k * mag).find((s) => s >= raw);
+    lo = Math.floor(lo / step) * step - step;
+    hi = Math.ceil(hi / step) * step + step;
+    const digits = Math.max(0, -Math.floor(Math.log10(step)));
+    const x = (i) => L + (i * (W - L - R)) / (series.length - 1);
+    const y = (val) => T + ((hi - val) * (H - T - B)) / (hi - lo);
+    let g = "";
+    for (let i = 0; lo + i * step <= hi + step / 2; i++) {
+      const t = lo + i * step;
+      g += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="rgba(255,255,255,0.07)"/>`;
+      g += `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${fmt(t, digits)}</text>`;
+    }
+    series.forEach((p, i) => { g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(p.period)}</text>`; });
+    const pts = series.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
+    const area = `${x(0)},${y(lo)} ${pts} ${x(series.length - 1)},${y(lo)}`;
+    const last = series[series.length - 1];
+    g += `<polygon points="${area}" fill="rgba(138,180,255,0.12)"/>`;
+    g += `<polyline points="${pts}" fill="none" stroke="#8ab4ff" stroke-width="2" stroke-linejoin="round"/>`;
+    g += `<circle cx="${x(series.length - 1)}" cy="${y(last.value)}" r="4.5" fill="#8ab4ff" stroke="#0a0f1e" stroke-width="2"/>`;
+    g += `<text x="${x(series.length - 1) - 8}" y="${y(last.value) - 10}" text-anchor="end" style="fill:#e8ecf6">${Number(last.value).toLocaleString("ko-KR")}</text>`;
+    svg.innerHTML = g;
+  }
+})();
+</script>
+</body>
+</html>
