@@ -454,6 +454,9 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
   ]
 }
 </script>
+<script type="application/json" id="report-fragments">
+{}
+</script>
 
 <script>
 (function () {
@@ -534,14 +537,26 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
   ];
   const partName = Object.fromEntries(parts.map((p) => [p.id, p.label]));
   const state = { view: "report", panel: "summary", filter: "all" };
+  // A member's section.html replaces the panels of the part that owns them; sources stay with the engine.
+  const OWNER = { summary: "center", industry: "industry", company: "company", valuation: "valuation", conclusion: "center" };
+  const DEFAULT = { summary: drawSummary, industry: drawIndustry, company: drawCompany, valuation: drawValuation, conclusion: drawConclusion };
+  const FRAGMENTS = JSON.parse($("report-fragments").textContent);
+  // Public contract of fragments (docs/section-guide.md): add new tools, never change these.
+  const ui = { card, esc, fmt, won, srcTag, drawLine };
+  // A fragment reading a field this run's JSON lacks (an older report.html) throws, so its panel falls back to the default.
+  const strict = (obj, path) => (obj === null || typeof obj !== "object") ? obj : new Proxy(obj, {
+    get(target, key, receiver) {
+      if (typeof key === "symbol" || key === "toJSON" || key in target) return strict(Reflect.get(target, key, receiver), `${path}.${key}`);
+      throw new Error(`이 결과의 JSON에 ${path}.${key} 칸이 없어요`);
+    }
+  });
+  const target = missing(data.valuation.bps) || missing(data.valuation.target_multiple) ? null : data.valuation.bps * data.valuation.target_multiple;
+  const priceMeta = missing(data.summary.current_price) ? "" : `기준일 ${esc(data.summary.price_as_of)} ${srcTag(data.summary.price_source)}`;
 
   render();
 
   function render() {
-    const m = data.meta, s = data.summary, v = data.valuation;
-    const target = missing(v.bps) || missing(v.target_multiple) ? null : v.bps * v.target_multiple;
-    const upside = missing(target) || missing(s.current_price) ? null : target / s.current_price - 1;
-    const pivotMultiple = missing(s.current_price) || missing(v.bps) ? null : s.current_price / v.bps;
+    const m = data.meta, s = data.summary;
 
     document.querySelector(".example-banner").style.display = m.is_example ? "" : "none";
     $("try-label").textContent = m.is_example ? "지금 볼 수 있는 예시:" : "지금 볼 수 있는 종목:";
@@ -553,14 +568,59 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
     const op = $("opinion");
     op.textContent = s.opinion + (m.is_example ? " (예시)" : "");
     op.classList.add(s.opinion === "매수" ? "up" : s.opinion === "매도" ? "down" : "hold");
-    const priceMeta = missing(s.current_price) ? "" : `기준일 ${esc(s.price_as_of)} ${srcTag(s.price_source)}`;
     $("side-now").textContent = won(s.current_price);
     $("side-now-meta").innerHTML = priceMeta;
-    $("price-now-meta").innerHTML = priceMeta;
     $("side-target").textContent = won(target);
 
+    Object.keys(DEFAULT).forEach(drawPanel);
+
+    $("source-list").innerHTML = data.sources.map((x) => `
+      <li id="src-${esc(x.id)}"><span class="num" style="color:var(--accent)">${esc(x.id)}</span><span>${esc(x.name)}${usedAt[x.id] ? `<span class="small muted" style="display:block">쓴 곳: ${esc(usedText(x.id))}</span>` : ""}</span><span class="small muted num">${esc(x.as_of)}</span></li>`).join("");
+    $("json-view").textContent = JSON.stringify(data, null, 2);
+
+    const ver = data.verification;
+    const counts = { pass: 0, hold: 0, reject: 0 };
+    ver.claims.forEach((c) => { counts[c.status] += 1; });
+    $("verify-tiles").innerHTML =
+      `<div class="tile"><div class="k">검증한 주장</div><div class="v num">${ver.claims.length}건</div></div>` +
+      Object.keys(counts).map((k) => `<div class="tile"><div class="k"><span class="status ${k}">${statusText[k]}</span></div><div class="v num">${counts[k]}건</div></div>`).join("");
+
+    renderRail();
+    renderVerifyTable();
+  }
+
+  // Footnotes are numbered in panel order, so a failed fragment's footnotes are taken back before the default draws.
+  function drawPanel(id) {
+    const frag = FRAGMENTS[OWNER[id]];
+    if (!frag) { DEFAULT[id](); return; }
+    const section = document.querySelector(`[data-panel="${id}"]`);
+    const holder = document.createElement("template");
+    holder.innerHTML = frag.html;
+    const block = holder.content.querySelector(`[data-panel="${id}"]`);
+    let used = `기본 (${frag.file}에 data-panel="${id}" 블록이 없어요)`;
+    if (block) {
+      const marks = [footnotes.length, Object.fromEntries(Object.entries(usedAt).map(([k, v]) => [k, v.length]))];
+      try {
+        const code = [...block.querySelectorAll("script")].map((el) => { el.remove(); return el.textContent; }).join("\n");
+        new Function("data", "root", "ui", code)(strict(data, "data"), block, ui);
+        section.replaceChildren(...block.childNodes);
+        used = frag.file;
+      } catch (err) {
+        footnotes.length = marks[0];
+        Object.keys(usedAt).forEach((k) => { if (k in marks[1]) usedAt[k].length = marks[1][k]; else delete usedAt[k]; });
+        used = `기본 (${frag.file} 오류: ${err.message})`;
+      }
+    }
+    if (used !== frag.file) DEFAULT[id]();
+    section.insertAdjacentHTML("beforeend", `<p class="small muted" style="margin:0">화면: ${esc(used)}</p>`);
+  }
+
+  function drawSummary() {
+    const s = data.summary;
+    const upside = missing(target) || missing(s.current_price) ? null : target / s.current_price - 1;
+    $("price-now-meta").innerHTML = priceMeta;
     $("one-line").innerHTML = card(s.one_line, "1쪽 요약");
-    $("as-of").textContent = `기준일 ${m.as_of}`;
+    $("as-of").textContent = `기준일 ${data.meta.as_of}`;
     $("price-now").textContent = won(s.current_price);
     $("price-target").textContent = won(target);
     $("upside").textContent = s.upside_note ? s.upside_note : missing(upside) ? NEED : (upside >= 0 ? "+" : "") + fmt(upside * 100) + "%";
@@ -570,7 +630,9 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
         <div class="value num">${missing(k.value) ? NEED : fmt(k.value) + esc(k.unit)}</div>
         <div class="why">${esc(k.why)}</div>
       </div>`).join("");
+  }
 
+  function drawIndustry() {
     const ind = data.industry;
     const tr = $("industry-trend");
     tr.textContent = ind.trend === "up" ? "개선 중 ▲" : ind.trend === "down" ? "꺾이는 중 ▼" : ind.trend === "flat" ? "횡보" : NEED;
@@ -579,7 +641,9 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
     $("industry-series-label").textContent = ind.series_label;
     $("industry-notes").innerHTML = ind.notes.map((n) => `<li>${card(n.text, "2쪽 산업")}${srcTag(n.source)}</li>`).join("");
     drawLine($("industry-chart"), ind.series);
+  }
 
+  function drawCompany() {
     const co = data.company;
     $("col-prev").textContent = co.periods[0];
     $("col-curr").textContent = co.periods[1];
@@ -595,7 +659,11 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
       return `<tr><td>${esc(r.item)}</td><td class="num">${fmt(r.prev)}</td><td class="num">${fmt(r.curr)}</td><td class="num ${good ? "up" : "down"}">${label}</td></tr>`;
     }).join("");
     $("company-drivers").innerHTML = co.drivers.map((d) => `<li>${card(d.text, "3쪽 기업")}${srcTag(d.source)}</li>`).join("");
+  }
 
+  function drawValuation() {
+    const s = data.summary, v = data.valuation;
+    const pivotMultiple = missing(s.current_price) || missing(v.bps) ? null : s.current_price / v.bps;
     $("valuation-method").innerHTML = `<strong>적용 방식: ${esc(v.method)}</strong> <span class="muted small num">(BPS ${won(v.bps)})</span><div style="margin-top:6px">${esc(v.method_reason)}</div>`;
     const near = (a, b) => !missing(a) && !missing(b) && Math.abs(a - b) < 0.05;
     const hasSens = !missing(v.bps) && !missing(v.target_multiple) && v.multiples.length > 0;
@@ -609,26 +677,13 @@ pre { margin: 12px 0 0; padding: 14px; border-radius: 12px; background: rgba(0, 
       return `<div class="cell${cls}"><div class="m">${tag}${fmt(x)}배</div><div class="p num">${won(v.bps * x)}</div></div>`;
     }).join("");
     $("valuation-conclusion").innerHTML = card(v.conclusion, "4쪽 밸류에이션");
+  }
 
-    const cc = data.conclusion;
-    $("points").innerHTML = cc.points.map((p) => `
+  function drawConclusion() {
+    $("points").innerHTML = data.conclusion.points.map((p) => `
       <li>${card(p.text, "5쪽 결론")}
         <div class="refs">근거: ${p.refs.length === 0 ? NEED : ""}${p.refs.map((r) => `<button type="button" class="link-btn" data-goto="${esc(r)}">${esc(partName[r] || r)}</button>`).join(" · ")}</div>
       </li>`).join("");
-
-    $("source-list").innerHTML = data.sources.map((x) => `
-      <li id="src-${esc(x.id)}"><span class="num" style="color:var(--accent)">${esc(x.id)}</span><span>${esc(x.name)}${usedAt[x.id] ? `<span class="small muted" style="display:block">쓴 곳: ${esc(usedText(x.id))}</span>` : ""}</span><span class="small muted num">${esc(x.as_of)}</span></li>`).join("");
-    $("json-view").textContent = JSON.stringify(data, null, 2);
-
-    const ver = data.verification;
-    const counts = { pass: 0, hold: 0, reject: 0 };
-    ver.claims.forEach((c) => { counts[c.status] += 1; });
-    $("verify-tiles").innerHTML =
-      `<div class="tile"><div class="k">검증한 주장</div><div class="v num">${ver.claims.length}건</div></div>` +
-      Object.keys(counts).map((k) => `<div class="tile"><div class="k"><span class="status ${k}">${statusText[k]}</span></div><div class="v num">${counts[k]}건</div></div>`).join("");
-
-    renderRail();
-    renderVerifyTable();
   }
 
   function renderRail() {

@@ -592,6 +592,21 @@ def find_prompts(prompts_dirs):
                     Path(prompts_dirs[-1]) / f"{n}.md") for n in PROMPT_NAMES}
 
 
+def find_fragments(prompts_dirs):
+    """{part: section.html} from the member folders whose prompts this run reads (the runner's and borrowed ones),
+    so a panel is redrawn under the same rule that picks a prompt; any other part keeps the default panel."""
+    found = {}
+    for d in prompts_dirs:
+        folder = Path(d).parent
+        if folder.parent.name == "members" and folder.name in (*PART_NAMES, "center") and (folder / "section.html").exists():
+            found.setdefault(folder.name, folder / "section.html")
+    return found
+
+
+def fragment_line(fragments):
+    return ", ".join(f"{n}: {fragments[n].as_posix() if n in fragments else '기본'}" for n in (*PART_NAMES, "center"))
+
+
 def new_run_dir(runs_root, stock_code, year, now):
     """A fresh folder runs_root/<stock>_<year>_<MMDD_HHMM>, seeded with the first-round (r0) answers and records of
     the most recent earlier folder for the same stock and year, so an unchanged question is not asked again.
@@ -625,6 +640,8 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
     try:
         paths = find_prompts(prompts_dirs)
         caller.status.append(("지시서", "ℹ", ", ".join(f"{n}: {path.as_posix()}" for n, path in paths.items())))
+        fragments = find_fragments(prompts_dirs)
+        caller.status.append(("화면 조각", "ℹ", fragment_line(fragments)))
         specs = {n: load_prompt(path) for n, path in paths.items()}
         stage = "호출 예산"
         _check_budget(quota_dirs, max_qa_rounds)
@@ -699,10 +716,10 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
         caller.status.append((stage, "❌", str(err)))
         verification = render_verification(caller, state, bundle, run_dir / "verification.md") if run_dir.exists() else None
         if bundle is not None:
-            render_html(run_dir, bundle, specs)
+            render_html(run_dir, bundle, specs, fragments)
         return RunResult(tuple(caller.status), caller.calls, caller.reused, None, verification)
     verification = render_verification(caller, state, bundle, run_dir / "verification.md")
-    render_html(run_dir, bundle, specs)
+    render_html(run_dir, bundle, specs, fragments)
     return RunResult(tuple(caller.status), caller.calls, caller.reused, report, verification)
 
 
@@ -752,7 +769,7 @@ def _latest(run_dir, name):
     return max(found)[2] if found else None
 
 
-def render_html(run_dir, bundle, specs):
+def render_html(run_dir, bundle, specs, fragments=None):
     """report.html from the files a run left in run_dir (no Gemini call), so an old run folder converts too.
     Claims are checked again with the engine copy in use, so an old folder shows today's verdicts."""
     from web_report import report_data, write_html  # web_report imports this module, so not at the top
@@ -778,7 +795,7 @@ def render_html(run_dir, bundle, specs):
                             for _, r in checked.iterrows()]
     pages = {p: {s: answers.get(owner, {}).get(s) for s in subs} for p, (_, owner, subs) in _layout(specs).items()}
     pages, checked = dummy.mark_inputs(bundle, pages, checked)
-    return write_html(dummy.mark_data(report_data(bundle, pages, checked), bundle), run_dir / "report.html")
+    return write_html(dummy.mark_data(report_data(bundle, pages, checked), bundle), run_dir / "report.html", fragments)
 
 
 def render_verification(caller, state, bundle, path):

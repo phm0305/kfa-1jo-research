@@ -168,11 +168,20 @@ def report_data(bundle, pages, checked):
     }
 
 
-def write_html(data, path):
-    block = json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False).replace("</", "<\\/")
-    html, n = DATA_BLOCK.subn(lambda m: f"{m[1]}\n{block}\n{m[3]}", TEMPLATE.read_text(encoding="utf-8"), count=1)
+def _fill_block(html, block_id, value):
+    # "<\/" is a valid JSON escape for "/", so the text stays exact while no "</script>" can end the block early.
+    text = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False).replace("</", "<\\/")
+    html, n = re.subn(rf'(<script type="application/json" id="{block_id}">)(.*?)(</script>)',
+                      lambda m: f"{m[1]}\n{text}\n{m[3]}", html, count=1, flags=re.S)
     if n != 1:
-        raise ValueError(f"{TEMPLATE} has no <script id=\"report-data\"> block")
+        raise ValueError(f"{TEMPLATE} has no <script id=\"{block_id}\"> block")
+    return html
+
+
+def write_html(data, path, fragments=None):
+    """fragments: {part: section.html path}; the page runs each in place of the panels that part owns."""
+    shown = {part: {"file": Path(f).as_posix(), "html": Path(f).read_text(encoding="utf-8")} for part, f in (fragments or {}).items()}
+    html = _fill_block(_fill_block(TEMPLATE.read_text(encoding="utf-8"), "report-data", data), "report-fragments", shown)
     path = Path(path)
     path.write_text(html, encoding="utf-8")
     return path

@@ -274,6 +274,24 @@ def test_each_prompt_comes_from_the_first_folder_that_has_it_and_the_first_statu
     assert shown["center"] == (PROMPTS / "center.md").as_posix()
 
 
+def test_a_fragment_is_taken_only_from_the_runners_and_borrowed_folders_and_the_status_says_which(tmp_path, monkeypatch):
+    monkeypatch.setattr(p, "build_bundle", fake_bundle)
+    monkeypatch.setattr(e, "_call_gemini", fake_gemini)
+    members = tmp_path / "members"
+    for name in ("industry", "company", "valuation"):
+        (members / name / "prompts").mkdir(parents=True)
+        (members / name / "section.html").write_text(f'<div data-panel="{name}"></script></div>', encoding="utf-8")
+    dirs = [members / "company/prompts", members / "industry/prompts", PROMPTS]
+
+    result = p.run("004370", 2025, dirs, tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+
+    assert result.status[1] == ("화면 조각", "ℹ", f"industry: {(members / 'industry/section.html').as_posix()}, "
+                                f"company: {(members / 'company/section.html').as_posix()}, valuation: 기본, center: 기본")
+    html = (tmp_path / "run" / "report.html").read_text(encoding="utf-8")
+    shown = json.loads(re.search(r'<script type="application/json" id="report-fragments">(.*?)</script>', html, re.S)[1])
+    assert set(shown) == {"industry", "company"} and shown["company"]["html"] == '<div data-panel="company"></script></div>'
+
+
 def test_a_new_run_folder_reuses_the_last_runs_first_round_so_only_the_edited_part_is_asked_again(tmp_path, monkeypatch):
     monkeypatch.setattr(p, "build_bundle", fake_bundle)
     monkeypatch.setattr(e, "_call_gemini", fake_gemini)
