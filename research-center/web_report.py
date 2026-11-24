@@ -14,7 +14,6 @@ from pathlib import Path
 
 from collect import is_blank
 from engine import FIX, PASS
-from layout import PAGES
 from market import PER_SHARE_ITEMS, current_price
 from pipeline import _eok, all_rows
 
@@ -133,11 +132,13 @@ def report_data(bundle, pages, checked):
     industry = pages.get(PANEL_PAGES["industry"], {})
     summary_text = _paragraphs(_text(pages.get(1, {})))
     points = []
-    for sub in PAGES[5][1]:
-        text = pages.get(5, {}).get(sub) or ""
+    for text in pages.get(5, {}).values():
+        # The center prompt fills a slot it has no point for with "해당 없음 ..." (members/center/prompts/center.md).
+        if not text or not text.strip() or text.strip().startswith("해당 없음"):
+            continue
         cited = _citations(text)
         refs = [panel for panel, page in PANEL_PAGES.items() if cited & _citations(_text(pages.get(page, {})))]
-        points.append({"text": text or NEED, "refs": refs})
+        points.append({"text": text, "refs": refs})
 
     return {
         "meta": {"is_example": False, "ticker": bundle.stock_code, "name": bundle.stock_name, "industry": industry.get("업종") or NEED,
@@ -155,7 +156,7 @@ def report_data(bundle, pages, checked):
                     "periods": [str(year - 1), str(year)], "rows": rows, "drivers": notes(PANEL_PAGES["company"])},
         "valuation": {"method": NEED, "method_reason": "", "bps": _metric_value(metrics, "BPS"), "multiples": [],
                       "target_multiple": None, "conclusion": _text(pages.get(PANEL_PAGES["valuation"], {})) or NEED},
-        "conclusion": {"points": points},
+        "conclusion": {"points": points or [{"text": NEED, "refs": []}]},
         "verification": {"claims": _verification(checked) if checked is not None else []},
         # The page hides citations in the text; this maps a rid (first four fields, as the engine reads a short rid)
         # or an M# (its first input row) to the S# its footnote points at.

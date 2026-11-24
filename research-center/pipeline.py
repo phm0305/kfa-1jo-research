@@ -27,7 +27,7 @@ from dart_doc import COMPANY_SOURCE, excerpts, fetch_document, industry_code, lo
 from excerpt_check import excerpt_check
 from engine import (FIX, METRIC_SPECS, UNITS, ask_claims, build_sources, check_claims, claims_prompt,
                     compute_metrics, load_claims, render_check, with_ids)
-from layout import PAGES
+from layout import PAGES, PREFIX_PAGES
 from market import (PER_SHARE_ITEMS, PRICE_METRICS, VALUATION_NAMES, current_price, owner_records, price_problem, price_records, share_records,
                     valuation_metrics)
 
@@ -49,7 +49,7 @@ PRICE_PARTS = ("valuation",)
 # The overview is fetched as it is now, so its range is the query itself; a date here would change every question daily.
 QUERIED = "조회 시점"
 PROMPT_NAMES = (*PART_NAMES, "center", "qa", "cross_exam")
-PROMPT_KEYS = {"파트", "리포트 칸", "데이터"}
+PROMPT_KEYS = {"파트", "리포트 칸", "데이터", "소제목"}
 DATA_KEYS = {"재무", "지표", "사업부문", "사업 설명"}
 BLANKS = ("종목명", "종목코드", "연도")
 WRITING_RULES = """규칙
@@ -121,6 +121,7 @@ class PromptSpec:
     pages: tuple
     scope: Scope | None
     body: str
+    subs: dict = field(default_factory=dict)  # {page: subheadings}: the prompt's 소제목, else layout.PAGES
 
 
 @dataclass(frozen=True)
@@ -306,7 +307,7 @@ def bundle_text(bundle, scope=None, with_price=True):
 
 def part_question(name, spec, bundle):
     """A part's first-round question: its prompt body, the fixed rules, its slots and its data block."""
-    return (f"{_fill(spec.body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(name, '')}\n\n[쓸 칸]\n{_slots(spec.pages)}\n\n"
+    return (f"{_fill(spec.body, bundle)}\n\n{WRITING_RULES}{PART_RULES.get(name, '')}\n\n[쓸 칸]\n{_slots(spec)}\n\n"
             f"{bundle_text(bundle, spec.scope, name in PRICE_PARTS)}")
 
 
@@ -358,7 +359,26 @@ def load_prompt(path):
     if set(pages) - set(PAGES):
         _stop(name, f"리포트 칸은 {list(PAGES)}쪽 중에서만 돼요. 지금: {head.get('리포트 칸')}")
     scope = _scope(name, head["데이터"]) if "데이터" in head else None
-    return PromptSpec(name, head["파트"], pages, scope, body)
+    return PromptSpec(name, head["파트"], pages, scope, body, _subheadings(name, head.get("소제목"), pages))
+
+
+def _subheadings(name, given, pages):
+    subs = {p: PAGES[p][1] for p in pages}
+    if given is None:
+        return subs
+    if not isinstance(given, dict):
+        _stop(name, f"소제목은 {{5쪽: [C-1, C-2]}}처럼 쪽마다 적어요. 지금: {given}")
+    for key, names in given.items():
+        page = re.fullmatch(r"(\d+)\s*쪽?", str(key).strip())
+        if not page or int(page[1]) not in pages:
+            _stop(name, f"소제목은 리포트 칸에 적은 쪽({', '.join(f'{p}쪽' for p in pages)})에만 쓸 수 있어요. 지금: {key}")
+        if not isinstance(names, list) or not names or any(is_blank(n) or not str(n).strip() for n in names):
+            _stop(name, f"소제목 {key}에는 [본문, 전망]처럼 이름을 하나 이상 적어요. 지금: {names}")
+        subs[int(page[1])] = tuple(str(n).strip() for n in names)
+    every = [s for names in subs.values() for s in names]
+    if len(set(every)) != len(every):
+        _stop(name, f"소제목 이름이 겹쳐요. 한 지시서 안에서는 쪽이 달라도 이름이 모두 달라야 해요. 지금: {every}")
+    return subs
 
 
 def _fill(body, bundle):
@@ -367,10 +387,28 @@ def _fill(body, bundle):
     return body
 
 
-def _slots(pages):
+def _key_list(spec):
+    """The JSON keys a writer must use, as the question and the verification record show them."""
+    keys = ", ".join(f'"{s}"' for subs in spec.subs.values() for s in subs)
+    prefix = [f"{p}쪽" for p in spec.subs if p in PREFIX_PAGES]
+    if prefix:
+        keys += f" ({', '.join(prefix)}은 첫 소제목부터 앞에서부터 순서대로 쓸 만큼만 써. 중간을 건너뛰지 마)"
+    return keys
+
+
+def _slots(spec):
     """Pages to fill plus the exact JSON keys; the 11/16 run used page titles as keys when both shared one line."""
-    keys = ", ".join(f'"{s}"' for p in pages for s in PAGES[p][1])
-    return "\n".join(f"- {p}쪽 {PAGES[p][0]}" for p in pages) + f"\nJSON 키(소제목)는 이것만 글자 그대로: {keys}"
+    return "\n".join(f"- {p}쪽 {PAGES[p][0]}" for p in spec.pages) + f"\nJSON 키(소제목)는 이것만 글자 그대로: {_key_list(spec)}"
+
+
+def _keys_ok(spec, keys):
+    """Every subheading of each page, except a prefix page: its first k subheadings for some k >= 1."""
+    keys = set(keys)
+    for page, subs in spec.subs.items():
+        need = subs[:max(1, sum(s in keys for s in subs))] if page in PREFIX_PAGES else subs
+        if set(need) - keys:
+            return False
+    return keys <= {s for subs in spec.subs.values() for s in subs}
 
 
 def _read_json(path):
@@ -432,16 +470,15 @@ class _Caller:
 def _write(caller, spec, rnd, prompt, bad):
     """Ask a writer and check its JSON keys against the layout in code, so the quality check never spends
     a call on format. One retry on a separate file (keeps the first answer reusable); still wrong -> bad."""
-    expected = [s for p in spec.pages for s in PAGES[p][1]]
     sections = _sections(caller.ask(spec.name, rnd, prompt))
-    if set(sections) != set(expected):
+    if not _keys_ok(spec, sections):
         retry = (f"{prompt}\n\n[형식 오류]\n앞 답의 JSON 키가 {list(sections)}였어. "
-                 f"키는 {expected}만 글자 그대로 써. 내용은 그대로 둬도 돼.")
+                 f"키는 {_key_list(spec)}만 글자 그대로 써. 내용은 그대로 둬도 돼.")
         sections = _sections(caller.ask(f"{spec.name}_fmt", rnd, retry))
-    if set(sections) == set(expected):
-        bad.discard(spec.name)
+    if _keys_ok(spec, sections):
+        bad.pop(spec.name, None)
     else:
-        bad.add(spec.name)
+        bad[spec.name] = _key_list(spec)
     return sections
 
 
@@ -582,7 +619,7 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
     run_dir = Path(run_dir)
     bundle = None
     caller = _Caller(run_dir, api_key)
-    state = {"qa": [], "cross": None, "checked": None, "owners": {}, "answers": {}, "bad_format": set(), "missed": {},
+    state = {"qa": [], "cross": None, "checked": None, "owners": {}, "answers": {}, "bad_format": {}, "missed": {},
              "excerpts": {}, "excerpt_sources": set()}
     stage = "지시서 읽기"
     try:
@@ -624,7 +661,7 @@ def run(stock_code, year, prompts_dirs, run_dir, api_key, dart_key, max_qa_round
                 state["answers"][n] = _write(caller, specs[n], rnd, prompt, state["bad_format"])
             stage = f"센터장 (바퀴 {rnd})"
             parts_text = "\n\n".join(f"[파트 글: {specs[n].part}]\n{_plain(state['answers'][n])}" for n in PART_NAMES)
-            prompt = (f"{_fill(specs['center'].body, bundle)}\n\n{CENTER_RULES}\n\n[쓸 칸]\n{_slots(specs['center'].pages)}"
+            prompt = (f"{_fill(specs['center'].body, bundle)}\n\n{CENTER_RULES}\n\n[쓸 칸]\n{_slots(specs['center'])}"
                       f"\n\n{parts_text}") + (dummy.block(bundle) if mine == "center" else "")
             if notes.get("center"):
                 prompt += f"\n\n[이전 답]\n{_plain(state['answers']['center'])}\n\n[고칠 점]\n" + "\n".join(f"- {x}" for x in notes["center"])
@@ -678,20 +715,27 @@ def _qa_notes(path):
             for item in answer if isinstance(item, dict)]
 
 
+def _layout(specs):
+    """{page: (title, owning prompt name or None, subheadings)} in page order, subheadings from the owner's 소제목."""
+    owners = {p: n for n in (*PART_NAMES, "center") for p in specs[n].pages}
+    return {p: (title, owners.get(p), specs[owners[p]].subs[p] if p in owners else subs)
+            for p, (title, subs) in PAGES.items()}
+
+
 def render_report(specs, answers, bundle, path, bad_format=()):
     """Report pages in layout order; each page's text comes from the prompt whose 리포트 칸 lists it."""
-    owners = {p: n for n in (*PART_NAMES, "center") for p in specs[n].pages}
     lines = [f"# {bundle.stock_name}({bundle.stock_code}) {bundle.year} 리서치 리포트", ""]
-    for page, (title, subtitles) in PAGES.items():
+    for page, (title, owner, subtitles) in _layout(specs).items():
         lines += [f"## {page}쪽 {title}", ""]
         if page == 1:
             lines += [price_line(bundle), ""]
-        owner = owners.get(page)
         sections = answers.get(owner, {})
         missing = "(확인 필요: 다시 불러도 소제목이 목차와 다름)" if owner in bad_format else "(비어 있음)"
         for sub in subtitles:
+            if page in PREFIX_PAGES and owner not in bad_format and not sections.get(sub):
+                continue
             lines += [f"### {sub}", "", sections.get(sub) or missing, ""]
-    shown = {s for _, subs in PAGES.values() for s in subs}
+    shown = {s for _, _, subs in _layout(specs).values() for s in subs}
     extra = [(n, t, x) for n, sec in answers.items() for t, x in sec.items() if t not in shown]
     if extra:
         lines += ["## 목차에 없는 소제목 (AI가 만든 것)", ""]
@@ -732,8 +776,7 @@ def render_html(run_dir, bundle, specs):
         checked["파트"] = [specs[o].part if o in specs else "알 수 없음" for o in checked["claim_id"].map(owners)]
         checked["발췌 대조"] = [excerpt_check(r["문장"], r["근거 id"], r["적은 숫자"], excerpt_texts, excerpt_sources)
                             for _, r in checked.iterrows()]
-    page_owner = {p: n for n in (*PART_NAMES, "center") for p in specs[n].pages}
-    pages = {p: {s: answers.get(page_owner.get(p), {}).get(s) for s in subs} for p, (_, subs) in PAGES.items()}
+    pages = {p: {s: answers.get(owner, {}).get(s) for s in subs} for p, (_, owner, subs) in _layout(specs).items()}
     pages, checked = dummy.mark_inputs(bundle, pages, checked)
     return write_html(dummy.mark_data(report_data(bundle, pages, checked), bundle), run_dir / "report.html")
 
@@ -760,7 +803,8 @@ def render_verification(caller, state, bundle, path):
     else:
         lines.append("(실행 안 됨)" if cross is None else f"(형식 오류) {cross}")
     lines += ["", "## ③ 사람 체크리스트", ""]
-    lines += [f"- [ ] 형식 확인 필요 ({n}): 다시 불러도 JSON 키가 목차 소제목과 다름" for n in sorted(state["bad_format"])]
+    lines += [f"- [ ] 형식 확인 필요 ({n}): 다시 불러도 JSON 키가 목차 소제목과 다름. 써야 할 키: {keys}"
+              for n, keys in sorted(state["bad_format"].items())]
     lines += [f"- [ ] 품질 점검 지적 ({q['파트']}): {q['지적']}" for q in state["qa"]]
     lines += [f"- [ ] 숫자 뽑기 확인 필요 ({n}): 숫자 {k}개가 있는데 그 글만 따로 뽑아도 주장 0개"
               for n, k in state["missed"].items()]

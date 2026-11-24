@@ -186,6 +186,65 @@ def test_hitting_the_daily_limit_mid_run_stops_after_that_stage_and_still_writes
     assert "하루 한도" in result.verification.read_text(encoding="utf-8")
 
 
+def with_subheadings(prompts, name, subs):
+    path = prompts / f"{name}.md"
+    path.write_text(path.read_text(encoding="utf-8").replace("\n---\n", f"\n소제목:\n{subs}\n---\n", 1), encoding="utf-8")
+
+
+def keys_writer(center_keys):
+    """Answers each writer with the keys its question asks for; center writes center_keys instead."""
+    def answer(prompt, api_key, model, fallback_model):
+        if prompt.startswith(e.CLAIM_RULES) or "[리포트 초안]" in prompt or "[최종 리포트]" in prompt:
+            return "[]", model, []
+        if "[파트 글:" in prompt:
+            return json.dumps({k: f"{k} 글" for k in center_keys}, ensure_ascii=False), model, []
+        keys = re.findall(r'"([^"]+)"', prompt.split("JSON 키(소제목)는 이것만 글자 그대로: ")[1].split("\n")[0])
+        return json.dumps({k: f"{k} 글" for k in keys}, ensure_ascii=False), model, []
+    return answer
+
+
+def test_front_matter_subheadings_set_the_keys_the_report_order_and_a_partly_filled_page_5(tmp_path, monkeypatch):
+    monkeypatch.setattr(p, "build_bundle", fake_bundle)
+    monkeypatch.setattr(e, "_call_gemini", keys_writer(["본문", "C-1", "C-2"]))
+    prompts = tmp_path / "prompts"
+    shutil.copytree(PROMPTS, prompts)
+    with_subheadings(prompts, "industry", "  2쪽: [업황, 전망]")
+    with_subheadings(prompts, "center", "  5쪽: [C-1, C-2, C-3, C-4]")
+
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+
+    assert not [s for s in result.status if s[1] == "❌" or "_fmt_" in s[0]]
+    report = result.report.read_text(encoding="utf-8")
+    assert "## 2쪽 산업분석\n\n### 업황\n\n업황 글\n\n### 전망\n\n전망 글\n" in report
+    assert "### C-2\n\nC-2 글" in report and "### C-3" not in report and "목차에 없는 소제목" not in report
+    page = page_data((tmp_path / "run" / "report.html").read_text(encoding="utf-8"))
+    assert [x["text"] for x in page["conclusion"]["points"]] == ["C-1 글", "C-2 글"]
+
+
+def test_a_gap_in_page_5_is_asked_again_and_left_for_a_person_with_the_keys_to_use(tmp_path, monkeypatch):
+    monkeypatch.setattr(p, "build_bundle", fake_bundle)
+    monkeypatch.setattr(e, "_call_gemini", keys_writer(["본문", "C-1", "C-3"]))
+    prompts = tmp_path / "prompts"
+    shutil.copytree(PROMPTS, prompts)
+    with_subheadings(prompts, "center", "  5쪽: [C-1, C-2, C-3, C-4]")
+
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+
+    assert "center_fmt_r0" in [s[0] for s in result.status]
+    verification = result.verification.read_text(encoding="utf-8")
+    assert '- [ ] 형식 확인 필요 (center): 다시 불러도 JSON 키가 목차 소제목과 다름. 써야 할 키: "본문", "C-1", "C-2", "C-3", "C-4"' in verification
+
+
+def test_subheadings_for_a_page_the_prompt_does_not_write_stop_with_the_file_name(tmp_path):
+    prompts = tmp_path / "prompts"
+    shutil.copytree(PROMPTS, prompts)
+    with_subheadings(prompts, "company", "  2쪽: [업황]")
+
+    result = p.run("004370", 2025, [prompts], tmp_path / "run", "key", "dart", quota_dirs=[tmp_path / "quota"])
+
+    assert result.status[-1][1] == "❌" and "company.md" in result.status[-1][2] and "3쪽" in result.status[-1][2]
+
+
 def test_a_metric_why_is_only_a_sentence_citing_that_metric_alone():
     import web_report as w
     assert w._why("M1", ["둘 다 늘었다 [S1] M1, M2. 성장했다 [S1] M1."]) == "성장했다 [S1] M1."

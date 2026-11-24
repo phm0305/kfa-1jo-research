@@ -1,11 +1,11 @@
-"""KFA study team 1: the research report's table of contents, the only place it is defined.
+"""KFA study team 1: the research report's table of contents and default subheadings.
 
-Page titles follow research-center/README.md. Page 2's 업종, 추세 and 한 줄 제목 fill the industry panel's
-header in report.html (web_report.py); 추세 must be one of 개선, 악화, 횡보. 본문 is a placeholder until
-the team settles the subheadings (11/17 meeting).
+Page titles follow research-center/README.md. A prompt's 소제목 front matter replaces a page's default
+subheadings for the run; pipeline.load_prompt is the only place that merges the two. Page 2's 업종, 추세 and
+한 줄 제목 fill the industry panel's header in report.html (web_report.py); 추세 must be one of 개선, 악화, 횡보.
 
-[한국어 안내] 리포트 목차예요. 쪽 제목과 소제목은 여기 한 곳에만 적어요.
-    지시서(prompts/*.md) 머리말에는 "리포트 칸: 3쪽"처럼 몇 쪽인지만 적고, 소제목은 여기서 가져가요.
+[한국어 안내] 리포트 목차와 기본 소제목이에요.
+    지시서 머리말에 "소제목: {5쪽: [C-1, C-2, C-3, C-4]}"처럼 적으면 그 쪽은 그 소제목을 써요. 안 적으면 여기 값을 써요.
 """
 
 PAGES = {
@@ -15,3 +15,6 @@ PAGES = {
     4: ("기업가치 평가", ("본문",)),
     5: ("투자포인트와 검증", ("C-1", "C-2", "C-3")),
 }
+# Pages whose writer may fill only the first k subheadings (k >= 1); a gap would make the page's point numbers
+# disagree with the verification record's.
+PREFIX_PAGES = {5}
