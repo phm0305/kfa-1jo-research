@@ -185,3 +185,13 @@ def write_html(data, path, fragments=None):
     path = Path(path)
     path.write_text(html, encoding="utf-8")
     return path
+
+
+def redraw(path, fragments=None):
+    """Rewrite a report.html with today's template and fragments from the JSON it already carries:
+    no Gemini, DART or price call, so its numbers stay those of its run."""
+    path = Path(path)
+    found = DATA_BLOCK.search(path.read_text(encoding="utf-8"))
+    if not found:
+        raise ValueError(f"{path.as_posix()}에 report-data 블록이 없어요")
+    return write_html(json.loads(found[2]), path, fragments)

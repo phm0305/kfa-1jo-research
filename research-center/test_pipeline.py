@@ -292,6 +292,20 @@ def test_a_fragment_is_taken_only_from_the_runners_and_borrowed_folders_and_the_
     assert set(shown) == {"industry", "company"} and shown["company"]["html"] == '<div data-panel="company"></script></div>'
 
 
+def test_redrawing_a_report_keeps_its_json_and_adds_the_fragments_without_any_call(tmp_path, monkeypatch):
+    import web_report as w
+    monkeypatch.setattr(e, "_call_gemini", lambda *args: (_ for _ in ()).throw(AssertionError("Gemini called")))
+    data = page_data(TEMPLATE.read_text(encoding="utf-8"))
+    path = w.write_html(data, tmp_path / "report.html")
+    fragment = tmp_path / "section.html"
+    fragment.write_text('<div data-panel="industry"></div>', encoding="utf-8")
+
+    w.redraw(path, {"industry": fragment})
+
+    html = path.read_text(encoding="utf-8")
+    assert page_data(html) == data and '\\"industry\\"' in html.split('id="report-fragments">')[1]
+
+
 def test_a_new_run_folder_reuses_the_last_runs_first_round_so_only_the_edited_part_is_asked_again(tmp_path, monkeypatch):
     monkeypatch.setattr(p, "build_bundle", fake_bundle)
     monkeypatch.setattr(e, "_call_gemini", fake_gemini)
