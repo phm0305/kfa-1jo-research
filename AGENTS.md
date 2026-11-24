@@ -36,7 +36,7 @@ py run.py --member industry --stock 004370 --year 2025 --with company
 ```
 
 - `industry` 자리에 내 파트 이름을 써요. 두 번째 줄은 company 조원의 지시서(와 화면 조각 `section.html`)를 끼워서 돌려 보는 예예요.
-- `py run.py --member industry --render-only`는 내 직전 결과 폴더의 `report.html`만 지금 화면 조각으로 다시 그려요. Gemini와 DART를 한 번도 부르지 않고 숫자도 그 실행 그대로예요. 화면 조각을 고칠 때 써요.
+- `py run.py --member industry --render-only`는 내 직전 결과를 지금 화면 조각으로 다시 그려 같은 폴더에 `preview.html`로 써요. `report.html`은 그대로 두고, Gemini와 DART를 한 번도 부르지 않고, 숫자도 그 실행 그대로예요. 화면 조각을 고칠 때 써요.
 - `python` 대신 `py`를 써요. `python`을 쳤을 때 Microsoft Store가 열리거나 아무 일도 안 일어나면, 그건 Windows의 가짜 `python`이에요. `py`로 실행하면 돼요.
 - 결과는 `members/<내 파트>/runs/<종목코드>_<연도>_<월일_시분>/`에 생겨요. 실행 결과 맨 위 "지시서" 줄에서 지시서 6개가 각각 어느 파일에서 읽혔는지 보여요. 내 파트가 `members/<내 파트>/prompts/...`로 나오면 내 지시서가 쓰인 거예요.
 

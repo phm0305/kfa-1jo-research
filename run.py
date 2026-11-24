@@ -7,7 +7,7 @@
 [한국어 안내] 내 지시서로 리포트를 만들어요. 고치지 않고 실행만 해요.
     --member       내 파트 (industry, company, valuation, center)
     --with         다른 조원의 지시서와 화면 조각을 끼워 보고 싶을 때 그 파트 이름 (읽기만 하고 복사하지 않아요)
-    --render-only  내 직전 결과 폴더의 report.html만 지금 화면 조각으로 다시 그려요. Gemini·DART를 부르지 않아요.
+    --render-only  내 직전 결과를 지금 화면 조각으로 다시 그려 같은 폴더의 preview.html로 써요. report.html은 그대로 두고 Gemini·DART를 부르지 않아요.
     결과는 members/<내 파트>/runs/<종목코드>_<연도>_<월일_시분>/ 에 생겨요.
 """
 
@@ -36,7 +36,7 @@ def main():
     parser.add_argument("--year", type=int, help="사업보고서 연도 (예: 2025)")
     parser.add_argument("--with", dest="borrowed", action="append", default=[], choices=MEMBERS,
                         help="끼워 볼 다른 조원의 파트")
-    parser.add_argument("--render-only", action="store_true", help="직전 결과의 report.html만 다시 그리기")
+    parser.add_argument("--render-only", action="store_true", help="직전 결과를 preview.html로 다시 그리기")
     args = parser.parse_args()
     prompts_dirs = [Path("members", m, "prompts") for m in args.borrowed] + [Path("members", args.member, "prompts"), Path("prompts")]
     runs = Path("members", args.member, "runs")
@@ -62,7 +62,7 @@ def render_only(runs, fragments):
         sys.exit(f"❌ {runs.as_posix()}에 report.html이 있는 결과 폴더가 없어요. 먼저 --stock, --year를 붙여 한 번 실행해 주세요")
     run_dir = max(done, key=lambda d: d.name[-9:])
     print("ℹ 화면 조각", fragment_line(fragments))
-    print(f"✅ 다시 그림: {redraw(run_dir / 'report.html', fragments).as_posix()} (Gemini·DART 호출 0번)")
+    print(f"✅ 미리보기: {redraw(run_dir / 'report.html', fragments).as_posix()} (Gemini·DART 호출 0번)")
 
 
 if __name__ == "__main__":

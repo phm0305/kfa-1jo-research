@@ -194,10 +194,10 @@ def write_html(data, path, fragments=None):
 
 
 def redraw(path, fragments=None):
-    """Rewrite a report.html with today's template and fragments from the JSON it already carries:
-    no Gemini, DART or price call, so its numbers stay those of its run."""
+    """preview.html next to a report.html, drawn with today's template and fragments from the JSON the report
+    carries: no Gemini, DART or price call, so its numbers stay those of its run, and the report is left as it was."""
     path = Path(path)
     found = DATA_BLOCK.search(path.read_text(encoding="utf-8"))
     if not found:
         raise ValueError(f"{path.as_posix()}에 report-data 블록이 없어요")
-    return write_html(json.loads(found[2]), path, fragments)
+    return write_html(json.loads(found[2]), path.with_name("preview.html"), fragments)
