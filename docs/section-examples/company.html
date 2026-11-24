@@ -1,0 +1,36 @@
+<!-- 3쪽 기업·재무 분석 패널의 기본 화면을 그대로 옮긴 예시예요. members/company/section.html로 복사해서 고쳐요. -->
+<div data-panel="company">
+  <div class="panel-head"><h2 id="h-company">기업·재무 분석</h2></div>
+  <div class="two-col">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>항목</th><th id="col-prev"></th><th id="col-curr"></th><th>변동</th></tr></thead>
+        <tbody id="company-table"></tbody>
+      </table>
+      <p class="small muted" id="company-unit"></p>
+    </div>
+    <div>
+      <h3 style="margin-bottom:10px">왜 변했나</h3>
+      <ul class="notes" id="company-drivers"></ul>
+    </div>
+  </div>
+  <script>
+    const $ = (id) => root.querySelector("#" + id);
+    const missing = (n) => n === null || n === undefined || Number.isNaN(Number(n));
+    const co = data.company;
+    $("col-prev").textContent = co.periods[0];
+    $("col-curr").textContent = co.periods[1];
+    $("company-unit").textContent = co.unit;
+    $("company-table").innerHTML = co.rows.map((r) => {
+      const isRatio = r.kind === "ratio";
+      if (missing(r.prev) || missing(r.curr) || (!isRatio && r.prev === 0)) {
+        return `<tr><td>${ui.esc(r.item)}</td><td class="num">${ui.fmt(r.prev)}</td><td class="num">${ui.fmt(r.curr)}</td><td class="num">확인 필요</td></tr>`;
+      }
+      const diff = isRatio ? r.curr - r.prev : (r.curr / r.prev - 1) * 100;
+      const good = "lower_is_better" in r ? diff < 0 : diff > 0;
+      const label = (diff >= 0 ? "+" : "") + ui.fmt(diff) + (isRatio ? "%p" : "%");
+      return `<tr><td>${ui.esc(r.item)}</td><td class="num">${ui.fmt(r.prev)}</td><td class="num">${ui.fmt(r.curr)}</td><td class="num ${good ? "up" : "down"}">${label}</td></tr>`;
+    }).join("");
+    $("company-drivers").innerHTML = co.drivers.map((d) => `<li>${ui.card(d.text, "3쪽 기업")}${ui.srcTag(d.source)}</li>`).join("");
+  </script>
+</div>

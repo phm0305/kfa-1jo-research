@@ -66,6 +66,7 @@ Colab: `notebooks/research_center.ipynb`를 Colab에서 열고 첫 칸의 `MEMBE
   ```
 
 - 5쪽은 목록의 앞에서부터 쓴 만큼만 써도 돼요(C-1, C-2만 쓰면 통과). 중간을 건너뛰면(C-1, C-3) 형식 오류로 한 번 다시 물어요. 화면의 투자포인트 번호와 검증 기록지 번호가 어긋나지 않게 하려는 규칙이에요. 비어 있거나 "해당 없음"으로 시작하는 칸은 화면에 나오지 않아요.
+- `report.html`에서 내 파트 패널의 화면을 바꾸고 싶으면 [docs/section-guide.md](docs/section-guide.md)를 읽어요. `members/<내 파트>/section.html` 하나로 바꿔요.
 - 본문에서 쓸 수 있는 빈칸은 `{종목명}`, `{종목코드}`, `{연도}` 세 개뿐이에요.
 
 ## 7. Gemini 무료 한도

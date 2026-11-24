@@ -1,0 +1,30 @@
+<!-- 4쪽 밸류에이션 패널의 기본 화면을 그대로 옮긴 예시예요. members/valuation/section.html로 복사해서 고쳐요. -->
+<div data-panel="valuation">
+  <div class="panel-head"><h2 id="h-valuation">밸류에이션</h2></div>
+  <div class="method" id="valuation-method"></div>
+  <div>
+    <h3 style="margin-bottom:8px">민감도: 적용 배수에 따른 주가</h3>
+    <div class="sens-row" id="sens-row"></div>
+    <p class="small muted" style="margin:8px 0 0">노란 칸은 지금 주가를 설명하는 배수(임계값), 초록 칸은 목표가에 쓴 배수입니다.</p>
+  </div>
+  <div id="valuation-conclusion" style="margin:0"></div>
+  <script>
+    const $ = (id) => root.querySelector("#" + id);
+    const missing = (n) => n === null || n === undefined || Number.isNaN(Number(n));
+    const s = data.summary, v = data.valuation;
+    const pivotMultiple = missing(s.current_price) || missing(v.bps) ? null : s.current_price / v.bps;
+    $("valuation-method").innerHTML = `<strong>적용 방식: ${ui.esc(v.method)}</strong> <span class="muted small num">(BPS ${ui.won(v.bps)})</span><div style="margin-top:6px">${ui.esc(v.method_reason)}</div>`;
+    const near = (a, b) => !missing(a) && !missing(b) && Math.abs(a - b) < 0.05;
+    const hasSens = !missing(v.bps) && !missing(v.target_multiple) && v.multiples.length > 0;
+    $("sens-row").parentElement.style.display = hasSens ? "" : "none";
+    const cells = hasSens ? v.multiples.slice() : [];
+    if (hasSens && !cells.some((x) => near(x, v.target_multiple))) cells.push(v.target_multiple);
+    cells.sort((a, b) => a - b);
+    $("sens-row").innerHTML = cells.map((x) => {
+      const cls = near(x, pivotMultiple) ? " pivot" : near(x, v.target_multiple) ? " target" : "";
+      const tag = near(x, pivotMultiple) ? "현재가 임계 " : near(x, v.target_multiple) ? "목표 " : "";
+      return `<div class="cell${cls}"><div class="m">${tag}${ui.fmt(x)}배</div><div class="p num">${ui.won(v.bps * x)}</div></div>`;
+    }).join("");
+    $("valuation-conclusion").innerHTML = ui.card(v.conclusion, "4쪽 밸류에이션");
+  </script>
+</div>

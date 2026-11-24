@@ -1,0 +1,44 @@
+<!-- 1쪽 한눈에 보기와 5쪽 결론 패널의 기본 화면을 그대로 옮긴 예시예요. members/center/section.html로 복사해서 고쳐요.
+     센터장은 패널이 두 개라 data-panel 블록도 두 개예요. 하나만 바꾸고 싶으면 다른 블록은 지워도 돼요(지운 패널은 기본 화면). -->
+<div data-panel="summary">
+  <div class="panel-head"><h2 id="h-summary">한눈에 보기</h2><span class="small muted" id="as-of"></span></div>
+  <div class="one-line" id="one-line"></div>
+  <div class="price-tiles">
+    <div class="tile"><div class="k">현재가</div><div class="v num" id="price-now"></div><div class="small muted" id="price-now-meta"></div></div>
+    <div class="tile"><div class="k">목표가</div><div class="v num" id="price-target"></div></div>
+    <div class="tile"><div class="k">상승 여력</div><div class="v num" id="upside"></div></div>
+  </div>
+  <div class="panel-head"><h3>이 업종에서 먼저 볼 지표</h3><span class="small muted">테두리 강조 = 판단에 가장 크게 작용한 지표</span></div>
+  <div class="key-grid" id="key-grid"></div>
+  <script>
+    const $ = (id) => root.querySelector("#" + id);
+    const missing = (n) => n === null || n === undefined || Number.isNaN(Number(n));
+    const s = data.summary, v = data.valuation;
+    const target = missing(v.bps) || missing(v.target_multiple) ? null : v.bps * v.target_multiple;
+    const upside = missing(target) || missing(s.current_price) ? null : target / s.current_price - 1;
+    $("price-now-meta").innerHTML = missing(s.current_price) ? "" : `기준일 ${ui.esc(s.price_as_of)} ${ui.srcTag(s.price_source)}`;
+    $("one-line").innerHTML = ui.card(s.one_line, "1쪽 요약");
+    $("as-of").textContent = `기준일 ${data.meta.as_of}`;
+    $("price-now").textContent = ui.won(s.current_price);
+    $("price-target").textContent = ui.won(target);
+    $("upside").textContent = s.upside_note ? s.upside_note : missing(upside) ? "확인 필요" : (upside >= 0 ? "+" : "") + ui.fmt(upside * 100) + "%";
+    $("key-grid").innerHTML = data.key_metrics.map((k) => `
+      <div class="key${k.star ? " star" : ""}">
+        <div class="label"><span>${ui.esc(k.label)}${ui.srcTag(k.source)}</span>${k.star ? '<span class="star-tag">판단 핵심</span>' : ""}</div>
+        <div class="value num">${missing(k.value) ? "확인 필요" : ui.fmt(k.value) + ui.esc(k.unit)}</div>
+        <div class="why">${ui.esc(k.why)}</div>
+      </div>`).join("");
+  </script>
+</div>
+
+<div data-panel="conclusion">
+  <div class="panel-head"><h2 id="h-conclusion">결론과 투자 포인트</h2></div>
+  <ol class="points" id="points"></ol>
+  <script>
+    const partName = { industry: "산업 분석", company: "기업·재무 분석", valuation: "밸류에이션" };
+    root.querySelector("#points").innerHTML = data.conclusion.points.map((p) => `
+      <li>${ui.card(p.text, "5쪽 결론")}
+        <div class="refs">근거: ${p.refs.length === 0 ? "확인 필요" : ""}${p.refs.map((r) => `<button type="button" class="link-btn" data-goto="${ui.esc(r)}">${ui.esc(partName[r] || r)}</button>`).join(" · ")}</div>
+      </li>`).join("");
+  </script>
+</div>
