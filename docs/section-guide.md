@@ -33,6 +33,7 @@
 ## 2. section.html 시작하기
 
 1. `docs/section-examples/<내 파트>.html`을 `members/<내 파트>/section.html`로 복사해요. 예시는 지금 기본 화면을 그대로 옮긴 거라서, 복사만 하고 돌리면 화면이 똑같이 나와요.
+   - 소제목마다 제목을 달아 나눠 보여 주고 싶으면 `docs/section-examples/industry-by-subheading.html`을 보세요. `data.pages["2"]`를 돌면서 소제목을 제목으로, 글을 카드로 그려요. 다른 파트도 쪽 번호만 바꿔서 같은 방법으로 쓸 수 있어요.
 2. 복사한 파일을 고쳐요. 파일 모양은 이래요.
 
 ```html
@@ -78,6 +79,7 @@
 | `valuation.bps`, `valuation.multiples[]`, `valuation.target_multiple` | BPS(원), 민감도 표의 배수 목록, 목표 배수 |
 | `valuation.conclusion` | 4쪽 글 전체 |
 | `conclusion.points[]` | 5쪽 투자포인트. 하나마다 `text`, `refs`(근거가 된 패널 이름 목록). 빈 칸과 "해당 없음" 칸은 이미 빠져 있어요 |
+| `pages["2"]` (1~5쪽 모두) | 그 쪽의 `{소제목: 글}`. 지시서 머리말의 소제목 순서 그대로예요. 비어 있거나 "해당 없음"으로 시작하는 칸도 소제목은 남고 글만 `""`이라서, 숨길지 보여 줄지 조각이 정해요. 쪽 번호는 `"2"`처럼 따옴표 안에 써요 |
 | `verification`, `cite_sources`, `sources` | 검증 기록지와 출처. 엔진 몫이라 읽기만 해요 |
 
 글 칸에는 `[S1]`, `M3` 같은 근거 표시가 그대로 들어 있어요. 화면에 글을 넣을 때는 `ui.card`를 쓰면 근거 표시를 숨기고 출처 각주를 달아 줘요.

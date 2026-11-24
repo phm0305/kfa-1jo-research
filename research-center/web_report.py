@@ -59,6 +59,11 @@ def _why(metric_id, texts):
     return ""
 
 
+def _unused(text):
+    """A slot with nothing to show; the center prompt fills a slot it has no point for with "해당 없음 ..."."""
+    return not text or not text.strip() or text.strip().startswith("해당 없음")
+
+
 def _citations(text):
     return {c.rsplit("|", 1)[0] if c.count("|") == 4 else c for c in CITATION.findall(text)}
 
@@ -133,8 +138,7 @@ def report_data(bundle, pages, checked):
     summary_text = _paragraphs(_text(pages.get(1, {})))
     points = []
     for text in pages.get(5, {}).values():
-        # The center prompt fills a slot it has no point for with "해당 없음 ..." (members/center/prompts/center.md).
-        if not text or not text.strip() or text.strip().startswith("해당 없음"):
+        if _unused(text):
             continue
         cited = _citations(text)
         refs = [panel for panel, page in PANEL_PAGES.items() if cited & _citations(_text(pages.get(page, {})))]
@@ -157,6 +161,8 @@ def report_data(bundle, pages, checked):
         "valuation": {"method": NEED, "method_reason": "", "bps": _metric_value(metrics, "BPS"), "multiples": [],
                       "target_multiple": None, "conclusion": _text(pages.get(PANEL_PAGES["valuation"], {})) or NEED},
         "conclusion": {"points": points or [{"text": NEED, "refs": []}]},
+        # For section.html: every page's subheadings in the owning prompt's order, an unused slot kept with "".
+        "pages": {str(p): {s: "" if _unused(t) else t for s, t in subs.items()} for p, subs in pages.items()},
         "verification": {"claims": _verification(checked) if checked is not None else []},
         # The page hides citations in the text; this maps a rid (first four fields, as the engine reads a short rid)
         # or an M# (its first input row) to the S# its footnote points at.

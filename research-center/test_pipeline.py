@@ -219,6 +219,8 @@ def test_front_matter_subheadings_set_the_keys_the_report_order_and_a_partly_fil
     assert "### C-2\n\nC-2 글" in report and "### C-3" not in report and "목차에 없는 소제목" not in report
     page = page_data((tmp_path / "run" / "report.html").read_text(encoding="utf-8"))
     assert [x["text"] for x in page["conclusion"]["points"]] == ["C-1 글", "C-2 글"]
+    assert list(page["pages"]["2"].items()) == [("업황", "업황 글"), ("전망", "전망 글")]
+    assert list(page["pages"]["5"].items()) == [("C-1", "C-1 글"), ("C-2", "C-2 글"), ("C-3", ""), ("C-4", "")]
 
 
 def test_a_gap_in_page_5_is_asked_again_and_left_for_a_person_with_the_keys_to_use(tmp_path, monkeypatch):
